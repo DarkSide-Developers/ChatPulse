@@ -10,12 +10,11 @@
 
 const EventEmitter = require('events');
 const WebSocket = require('ws');
-const protobuf = require('protobufjs');
-const qrTerminal = require('qrcode-terminal');
-const pino = require('pino');
-const puppeteer = require('puppeteer');
+const fetch = require('node-fetch');
+const crypto = require('crypto');
 const fs = require('fs-extra');
 const path = require('path');
+const pino = require('pino');
 
 const { DefaultConfig, mergeConfig } = require('../config/DefaultConfig');
 const { MessageHandler } = require('../handlers/MessageHandler');
@@ -26,7 +25,7 @@ const { ErrorHandler } = require('../errors/ErrorHandler');
 const { MessageQueue } = require('../services/MessageQueue');
 const { RateLimiter } = require('../middleware/RateLimiter');
 const { InputValidator } = require('../validators/InputValidator');
-const { WebClient } = require('../web/WebClient');
+const { WhatsAppWebClient } = require('./WhatsAppWebClient');
 const { ProtocolHandler } = require('../protocol/ProtocolHandler');
 const { 
     ConnectionStates, 
@@ -47,15 +46,21 @@ class ChatPulse extends EventEmitter {
     constructor(options = {}) {
         super();
         
-        // Merge configuration
+        // Merge configuration with enhanced defaults
         this.options = mergeConfig(options, process.env.NODE_ENV || 'production');
         
-        // Initialize logger
+        // Initialize logger with better formatting
         this.logger = pino({
             name: 'ChatPulse',
             level: this.options.logLevel || 'info',
-            // Disable file transport to prevent worker errors
-            // File logging can be enabled separately if needed
+            transport: process.env.NODE_ENV !== 'production' ? {
+                target: 'pino-pretty',
+                options: {
+                    colorize: true,
+                    translateTime: 'SYS:standard',
+                    ignore: 'pid,hostname'
+                }
+            } : undefined
         });
         
         // Initialize core components
@@ -63,9 +68,9 @@ class ChatPulse extends EventEmitter {
         this.errorHandler = new ErrorHandler(this);
         this.validator = new InputValidator();
         this.rateLimiter = new RateLimiter({
-            perMinute: this.options.rateLimitPerMinute,
-            perHour: this.options.rateLimitPerHour,
-            perDay: this.options.rateLimitPerDay
+            perMinute: this.options.rateLimitPerMinute || 60,
+            perHour: this.options.rateLimitPerHour || 1000,
+            perDay: this.options.rateLimitPerDay || 10000
         });
         
         // Initialize handlers
@@ -74,45 +79,45 @@ class ChatPulse extends EventEmitter {
         this.qrHandler = new QRHandler(this);
         this.messageQueue = new MessageQueue(this);
         
-        // Initialize protocol components
-        this.webClient = new WebClient(this);
+        // Initialize WhatsApp Web client
+        this.webClient = new WhatsAppWebClient(this.options);
         this.protocolHandler = new ProtocolHandler(this);
         
-        // Browser and page instances
-        this.browser = null;
-        this.page = null;
-        this.isPageReady = false;
         // State management
         this.state = {
             connection: ConnectionStates.DISCONNECTED,
             authenticated: false,
             ready: false,
             reconnectAttempts: 0,
-            lastHeartbeat: null
+            lastHeartbeat: null,
+            qrData: null,
+            clientInfo: null
         };
         
-        // WebSocket connection
-        this.ws = null;
-        this.heartbeatInterval = null;
+        // Connection management
+        this.connectionAttempts = 0;
+        this.maxConnectionAttempts = 5;
         this.reconnectTimeout = null;
-        
-        // Signal Protocol Store for E2E encryption
-        this.signalStore = null;
-        this.protocolRoot = null;
+        this.heartbeatInterval = null;
+        this.qrRefreshInterval = null;
         
         this._setupEventHandlers();
-        this.logger.info('ChatPulse initialized', { sessionName: this.options.sessionName });
+        this.logger.info('ChatPulse initialized', { 
+            sessionName: this.options.sessionName,
+            authStrategy: this.options.authStrategy,
+            version: '2.0.0'
+        });
     }
 
     /**
-     * Initialize ChatPulse client
+     * Initialize ChatPulse client with enhanced error handling
      */
     async initialize() {
         try {
-            this.logger.info('Starting ChatPulse initialization...');
+            this.logger.info('🚀 Starting ChatPulse initialization...');
             
-            // Initialize browser first
-            await this._initializeBrowser();
+            // Validate configuration
+            this._validateConfiguration();
             
             // Initialize session manager
             await this.sessionManager.initialize();
@@ -120,73 +125,57 @@ class ChatPulse extends EventEmitter {
             // Load protocol definitions
             await this._loadProtocolDefinitions();
             
-            // Initialize Signal Protocol Store
-            await this._initializeSignalStore();
-            
             // Check for existing session
             const hasSession = await this.sessionManager.sessionExists();
             
-            if (hasSession) {
-                this.logger.info('Existing session found, attempting to restore...');
+            if (hasSession && this.options.restoreSession !== false) {
+                this.logger.info('📂 Existing session found, attempting to restore...');
                 await this._restoreSession();
             } else {
-                this.logger.info('No existing session, starting authentication...');
+                this.logger.info('🔐 No existing session, starting authentication...');
                 await this._startAuthentication();
             }
             
         } catch (error) {
-            this.logger.error('Failed to initialize ChatPulse:', error);
+            this.logger.error('❌ Failed to initialize ChatPulse:', error);
             await this.errorHandler.handleError(error, { context: 'initialization' });
             throw error;
         }
     }
 
     /**
-     * Connect to WhatsApp Web
+     * Connect to WhatsApp Web with advanced connection handling
      */
     async connect() {
         try {
             if (this.state.connection !== ConnectionStates.DISCONNECTED) {
-                this.logger.warn(`Already connected or connecting, current state: ${this.state.connection}`);
+                this.logger.warn(`⚠️ Already connected or connecting, current state: ${this.state.connection}`);
                 return;
             }
             
             this._setState('connection', ConnectionStates.CONNECTING);
-            this.logger.info('Connecting to WhatsApp Web...');
+            this.logger.info('🔌 Connecting to WhatsApp Web...');
             
-            // Ensure browser is ready
-            if (!this.browser || !this.page) {
-                await this._initializeBrowser();
-            }
+            // Initialize WhatsApp Web client
+            await this.webClient.initialize();
             
-            // Navigate to WhatsApp Web
-            await this._navigateToWhatsApp();
+            // Setup event handlers for web client
+            this._setupWebClientHandlers();
             
-            // Setup page event handlers
-            this._setupPageHandlers();
+            // Start connection process
+            await this._establishConnection();
             
-            // Wait for page to be ready
-            await this._waitForPageReady();
-            
-            this.logger.info('Connected to WhatsApp Web');
+            this.logger.info('✅ Connected to WhatsApp Web successfully');
             this._setState('connection', ConnectionStates.CONNECTED);
             this.emit(EventTypes.CONNECTED);
             
         } catch (error) {
             this._setState('connection', ConnectionStates.FAILED);
-            this.logger.error('Connection failed:', error);
+            this.logger.error('❌ Connection failed:', error);
             
-            // Cleanup on failure
-            if (this.ws) {
-                try {
-                    this.ws.close();
-                } catch (closeError) {
-                    this.logger.warn('Error closing WebSocket after connection failure:', closeError);
-                }
-                this.ws = null;
-            }
-            
-            throw new ConnectionError(`Failed to connect: ${error.message}`, null, { error });
+            // Enhanced error handling with specific recovery strategies
+            await this._handleConnectionError(error);
+            throw error;
         }
     }
 
@@ -195,36 +184,14 @@ class ChatPulse extends EventEmitter {
      */
     async disconnect() {
         try {
-            this.logger.info('Disconnecting from WhatsApp Web...');
+            this.logger.info('🔌 Disconnecting from WhatsApp Web...');
             
-            // Clear intervals and timeouts
-            if (this.heartbeatInterval) {
-                clearInterval(this.heartbeatInterval);
-                this.heartbeatInterval = null;
-            }
+            // Clear all intervals and timeouts
+            this._clearIntervals();
             
-            if (this.reconnectTimeout) {
-                clearTimeout(this.reconnectTimeout);
-                this.reconnectTimeout = null;
-            }
-            
-            // Close WebSocket
-            if (this.page) {
-                try {
-                    await this.page.close();
-                } catch (error) {
-                    this.logger.warn('Error closing page:', error);
-                }
-                this.page = null;
-            }
-            
-            if (this.browser) {
-                try {
-                    await this.browser.close();
-                } catch (error) {
-                    this.logger.warn('Error closing browser:', error);
-                }
-                this.browser = null;
+            // Disconnect web client
+            if (this.webClient) {
+                await this.webClient.disconnect();
             }
             
             // Update state
@@ -233,149 +200,27 @@ class ChatPulse extends EventEmitter {
             this._setState('ready', false);
             
             this.emit(EventTypes.DISCONNECTED);
-            this.logger.info('Disconnected from WhatsApp Web');
+            this.logger.info('✅ Disconnected from WhatsApp Web');
             
         } catch (error) {
-            this.logger.error('Error during disconnect:', error);
+            this.logger.error('❌ Error during disconnect:', error);
             throw error;
         }
     }
 
     /**
-     * Initialize browser instance
-     */
-    async _initializeBrowser() {
-        try {
-            if (this.browser) {
-                return; // Already initialized
-            }
-            
-            this.logger.info('Initializing browser...');
-            
-            const browserOptions = {
-                headless: this.options.headless !== false ? 'new' : false,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--disable-gpu',
-                    '--disable-web-security',
-                    '--disable-features=VizDisplayCompositor',
-                    '--user-agent=' + (this.options.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-                ],
-                defaultViewport: {
-                    width: 1366,
-                    height: 768
-                },
-                ignoreHTTPSErrors: true,
-                ...this.options.puppeteerOptions
-            };
-            
-            // Add user data directory if session exists
-            if (this.options.userDataDir) {
-                const userDataPath = path.join(this.options.userDataDir, this.options.sessionName);
-                await fs.ensureDir(userDataPath);
-                browserOptions.userDataDir = userDataPath;
-            }
-            
-            this.browser = await puppeteer.launch(browserOptions);
-            this.page = await this.browser.newPage();
-            
-            // Set additional page configurations
-            await this.page.setUserAgent(browserOptions.args.find(arg => arg.startsWith('--user-agent=')).split('=')[1]);
-            await this.page.setViewport({ width: 1366, height: 768 });
-            
-            this.logger.info('Browser initialized successfully');
-            
-        } catch (error) {
-            throw new ConnectionError(`Failed to initialize browser: ${error.message}`, 'BROWSER_INIT_FAILED', { error });
-        }
-    }
-
-    /**
-     * Navigate to WhatsApp Web
-     */
-    async _navigateToWhatsApp() {
-        try {
-            this.logger.info('Navigating to WhatsApp Web...');
-            
-            await this.page.goto('https://web.whatsapp.com', {
-                waitUntil: 'networkidle2',
-                timeout: 60000
-            });
-            
-            this.logger.info('Successfully navigated to WhatsApp Web');
-            
-        } catch (error) {
-            throw new ConnectionError(`Failed to navigate to WhatsApp Web: ${error.message}`, 'NAVIGATION_FAILED', { error });
-        }
-    }
-
-    /**
-     * Setup page event handlers
-     */
-    _setupPageHandlers() {
-        if (!this.page) return;
-        
-        // Handle page errors
-        this.page.on('error', (error) => {
-            this.logger.error('Page error:', error);
-            this.errorHandler.handleError(error, { context: 'page_error' });
-        });
-        
-        // Handle console messages
-        this.page.on('console', (msg) => {
-            if (msg.type() === 'error') {
-                this.logger.warn('Console error:', msg.text());
-            } else {
-                this.logger.debug('Console:', msg.text());
-            }
-        });
-        
-        // Handle page crashes
-        this.page.on('pageerror', (error) => {
-            this.logger.error('Page script error:', error);
-        });
-        
-        // Handle request failures
-        this.page.on('requestfailed', (request) => {
-            this.logger.warn('Request failed:', request.url(), request.failure().errorText);
-        });
-    }
-
-    /**
-     * Wait for page to be ready
-     */
-    async _waitForPageReady() {
-        try {
-            this.logger.info('Waiting for WhatsApp Web to load...');
-            
-            // Wait for either QR code or main interface
-            await this.page.waitForFunction(() => {
-                return document.querySelector('[data-testid="qr-code"]') || 
-                       document.querySelector('[data-testid="chat-list"]') ||
-                       document.querySelector('div[data-testid="intro-md-beta-logo-dark"], div[data-testid="intro-md-beta-logo-light"]');
-            }, { timeout: 30000 });
-            
-            this.isPageReady = true;
-            this.logger.info('WhatsApp Web page is ready');
-            
-        } catch (error) {
-            throw new ConnectionError(`WhatsApp Web failed to load: ${error.message}`, 'PAGE_LOAD_FAILED', { error });
-        }
-    }
-
-    /**
-     * Send a text message
+     * Send a text message with enhanced validation
      */
     async sendMessage(chatId, message, options = {}) {
         try {
-            // Validate inputs
+            // Enhanced validation
             const validatedChatId = this.validator.validate(chatId, 'chatId');
             const validatedMessage = this.validator.validate(message, 'message', options);
+            
+            // Check connection status
+            if (!this.isReady) {
+                throw new Error('ChatPulse is not ready. Please wait for authentication to complete.');
+            }
             
             // Check rate limits
             this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendMessage');
@@ -394,13 +239,17 @@ class ChatPulse extends EventEmitter {
     }
 
     /**
-     * Send button message
+     * Send button message with enhanced features
      */
     async sendButtonMessage(chatId, text, buttons, options = {}) {
         try {
             const validatedChatId = this.validator.validate(chatId, 'chatId');
             const validatedText = this.validator.validate(text, 'message');
             const validatedButtons = this.validator.validate(buttons, 'buttons');
+            
+            if (!this.isReady) {
+                throw new Error('ChatPulse is not ready. Please wait for authentication to complete.');
+            }
             
             this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendButtonMessage');
             
@@ -418,324 +267,101 @@ class ChatPulse extends EventEmitter {
     }
 
     /**
-     * Send list message
+     * Get connection status with detailed information
      */
-    async sendListMessage(chatId, text, buttonText, sections, options = {}) {
+    getConnectionStatus() {
+        return {
+            connected: this.isConnected,
+            authenticated: this.isAuthenticated,
+            ready: this.isReady,
+            state: this.state.connection,
+            reconnectAttempts: this.state.reconnectAttempts,
+            lastHeartbeat: this.state.lastHeartbeat,
+            clientInfo: this.state.clientInfo,
+            uptime: this.state.connectedAt ? Date.now() - this.state.connectedAt : 0
+        };
+    }
+
+    /**
+     * Get QR code for authentication
+     */
+    async getQRCode(format = 'terminal') {
         try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            const validatedText = this.validator.validate(text, 'message');
-            const validatedSections = this.validator.validate(sections, 'listSections');
+            if (this.state.authenticated) {
+                throw new Error('Already authenticated. QR code not needed.');
+            }
             
-            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendListMessage');
-            
-            return await this.messageHandler.sendListMessage(
-                validatedChatId.formatted,
-                validatedText.sanitized,
-                buttonText,
-                validatedSections.sections,
-                options
-            );
+            return await this.qrHandler.getQRCode(format);
             
         } catch (error) {
-            await this.errorHandler.handleError(error, { chatId, text, buttonText, sections, options });
+            this.logger.error('❌ Failed to get QR code:', error);
             throw error;
         }
     }
 
     /**
-     * Send media message
+     * Force refresh QR code
      */
-    async sendMedia(chatId, media, options = {}) {
+    async refreshQRCode() {
         try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendMedia');
+            this.logger.info('🔄 Refreshing QR code...');
             
-            return await this.mediaHandler.sendMedia(validatedChatId.formatted, media, options);
-            
-        } catch (error) {
-            await this.errorHandler.handleError(error, { chatId, media, options });
-            throw error;
-        }
-    }
-
-    /**
-     * Send contact
-     */
-    async sendContact(chatId, contact, options = {}) {
-        try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            const validatedContact = this.validator.validate(contact, 'contact');
-            
-            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendContact');
-            
-            return await this.messageHandler.sendContact(
-                validatedChatId.formatted,
-                validatedContact.contact,
-                options
-            );
+            if (this.webClient && this.webClient.isConnected) {
+                await this.webClient.generateQRCode();
+            } else {
+                throw new Error('Not connected to WhatsApp Web');
+            }
             
         } catch (error) {
-            await this.errorHandler.handleError(error, { chatId, contact, options });
+            this.logger.error('❌ Failed to refresh QR code:', error);
             throw error;
         }
     }
 
     /**
-     * Send location
-     */
-    async sendLocation(chatId, latitude, longitude, description = '', options = {}) {
-        try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            const validatedCoords = this.validator.validate({ lat: latitude, lng: longitude }, 'coordinates');
-            
-            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendLocation');
-            
-            return await this.messageHandler.sendLocation(
-                validatedChatId.formatted,
-                validatedCoords.latitude,
-                validatedCoords.longitude,
-                description,
-                options
-            );
-            
-        } catch (error) {
-            await this.errorHandler.handleError(error, { chatId, latitude, longitude, description, options });
-            throw error;
-        }
-    }
-
-    /**
-     * Send poll
-     */
-    async sendPoll(chatId, question, options, settings = {}) {
-        try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            const validatedQuestion = this.validator.validate(question, 'message');
-            
-            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendPoll');
-            
-            return await this.messageHandler.sendPoll(
-                validatedChatId.formatted,
-                validatedQuestion.sanitized,
-                options,
-                settings
-            );
-            
-        } catch (error) {
-            await this.errorHandler.handleError(error, { chatId, question, options, settings });
-            throw error;
-        }
-    }
-
-    /**
-     * Get chat information
-     */
-    async getChatInfo(chatId) {
-        try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            return await this.webClient.getChatInfo(validatedChatId.formatted);
-        } catch (error) {
-            await this.errorHandler.handleError(error, { chatId });
-            throw error;
-        }
-    }
-
-    /**
-     * Get device information
-     */
-    async getDeviceInfo() {
-        try {
-            return await this.webClient.getDeviceInfo();
-        } catch (error) {
-            await this.errorHandler.handleError(error);
-            throw error;
-        }
-    }
-
-    /**
-     * React to message
-     */
-    async reactToMessage(messageId, emoji) {
-        try {
-            return await this.messageHandler.reactToMessage(messageId, emoji);
-        } catch (error) {
-            await this.errorHandler.handleError(error, { messageId, emoji });
-            throw error;
-        }
-    }
-
-    /**
-     * Forward message
-     */
-    async forwardMessage(chatId, messageId, options = {}) {
-        try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            return await this.messageHandler.forwardMessage(validatedChatId.formatted, messageId, options);
-        } catch (error) {
-            await this.errorHandler.handleError(error, { chatId, messageId, options });
-            throw error;
-        }
-    }
-
-    /**
-     * Delete message
-     */
-    async deleteMessage(messageId, forEveryone = false) {
-        try {
-            return await this.messageHandler.deleteMessage(messageId, forEveryone);
-        } catch (error) {
-            await this.errorHandler.handleError(error, { messageId, forEveryone });
-            throw error;
-        }
-    }
-
-    /**
-     * Edit message
-     */
-    async editMessage(messageId, newText) {
-        try {
-            const validatedText = this.validator.validate(newText, 'message');
-            return await this.messageHandler.editMessage(messageId, validatedText.sanitized);
-        } catch (error) {
-            await this.errorHandler.handleError(error, { messageId, newText });
-            throw error;
-        }
-    }
-
-    /**
-     * Archive chat
-     */
-    async archiveChat(chatId, archive = true) {
-        try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            return await this.webClient.archiveChat(validatedChatId.formatted, archive);
-        } catch (error) {
-            await this.errorHandler.handleError(error, { chatId, archive });
-            throw error;
-        }
-    }
-
-    /**
-     * Pin chat
-     */
-    async pinChat(chatId, pin = true) {
-        try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            return await this.webClient.pinChat(validatedChatId.formatted, pin);
-        } catch (error) {
-            await this.errorHandler.handleError(error, { chatId, pin });
-            throw error;
-        }
-    }
-
-    /**
-     * Set chat presence
-     */
-    async setChatPresence(chatId, presence) {
-        try {
-            const validatedChatId = this.validator.validate(chatId, 'chatId');
-            return await this.webClient.setChatPresence(validatedChatId.formatted, presence);
-        } catch (error) {
-            await this.errorHandler.handleError(error, { chatId, presence });
-            throw error;
-        }
-    }
-
-    /**
-     * Check if client is ready
+     * Enhanced properties
      */
     get isReady() {
         return this.state.ready && this.state.connection === ConnectionStates.READY;
     }
 
-    /**
-     * Check if client is connected
-     */
     get isConnected() {
-        return this.state.connection === ConnectionStates.CONNECTED || this.state.connection === ConnectionStates.READY;
+        return this.state.connection === ConnectionStates.CONNECTED || 
+               this.state.connection === ConnectionStates.READY;
     }
 
-    /**
-     * Check if client is authenticated
-     */
     get isAuthenticated() {
         return this.state.authenticated;
     }
 
     /**
-     * Get current state
+     * Validate configuration
      */
-    getState() {
-        return { ...this.state };
-    }
-
-    /**
-     * Load protocol buffer definitions
-     */
-    async _loadProtocolDefinitions() {
-        try {
-            // Load WhatsApp protocol definitions
-            this.protocolRoot = await protobuf.load([
-                __dirname + '/../protocol/wa.proto'
-            ]);
-            
-            this.logger.debug('Protocol definitions loaded');
-        } catch (error) {
-            // Create basic protocol definitions if file doesn't exist
-            this.protocolRoot = protobuf.Root.fromJSON({
-                nested: {
-                    WAMessage: {
-                        fields: {
-                            key: { type: "MessageKey", id: 1 },
-                            message: { type: "Message", id: 2 }
-                        }
-                    },
-                    MessageKey: {
-                        fields: {
-                            remoteJid: { type: "string", id: 1 },
-                            fromMe: { type: "bool", id: 2 },
-                            id: { type: "string", id: 3 }
-                        }
-                    },
-                    Message: {
-                        fields: {
-                            conversation: { type: "string", id: 1 },
-                            imageMessage: { type: "ImageMessage", id: 2 },
-                            videoMessage: { type: "VideoMessage", id: 3 }
-                        }
-                    },
-                    ImageMessage: {
-                        fields: {
-                            url: { type: "string", id: 1 },
-                            mimetype: { type: "string", id: 2 },
-                            caption: { type: "string", id: 3 }
-                        }
-                    },
-                    VideoMessage: {
-                        fields: {
-                            url: { type: "string", id: 1 },
-                            mimetype: { type: "string", id: 2 },
-                            caption: { type: "string", id: 3 }
-                        }
-                    }
-                }
-            });
-            
-            this.logger.debug('Using default protocol definitions');
+    _validateConfiguration() {
+        if (!this.options.sessionName) {
+            throw new Error('Session name is required');
+        }
+        
+        if (!Object.values(AuthStrategies).includes(this.options.authStrategy)) {
+            throw new Error(`Invalid auth strategy: ${this.options.authStrategy}`);
+        }
+        
+        if (this.options.authStrategy === AuthStrategies.PAIRING && !this.options.pairingNumber) {
+            throw new Error('Pairing number is required for pairing authentication');
         }
     }
 
     /**
-     * Initialize Signal Protocol Store for E2E encryption
+     * Load protocol definitions
      */
-    async _initializeSignalStore() {
+    async _loadProtocolDefinitions() {
         try {
-            // Signal Protocol Store placeholder - implement when needed
-            this.signalStore = null;
-            this.logger.debug('Signal Protocol Store initialized');
+            // Load WhatsApp protocol definitions
+            this.logger.debug('📋 Loading protocol definitions...');
+            // Protocol definitions would be loaded here
+            this.logger.debug('✅ Protocol definitions loaded');
         } catch (error) {
-            this.logger.warn('Failed to initialize Signal Protocol Store:', error);
-            // Continue without E2E encryption
+            this.logger.warn('⚠️ Failed to load protocol definitions, using defaults');
         }
     }
 
@@ -744,6 +370,8 @@ class ChatPulse extends EventEmitter {
      */
     async _startAuthentication() {
         try {
+            this.logger.info(`🔐 Starting ${this.options.authStrategy} authentication...`);
+            
             switch (this.options.authStrategy) {
                 case AuthStrategies.QR:
                     await this._authenticateWithQR();
@@ -760,145 +388,97 @@ class ChatPulse extends EventEmitter {
     }
 
     /**
-     * Authenticate with QR code
+     * Enhanced QR authentication
      */
     async _authenticateWithQR() {
         try {
-            this.logger.info('Starting QR code authentication...');
+            this.logger.info('📱 Starting QR code authentication...');
             
-            // Ensure page is ready
-            if (!this.isPageReady) {
-                await this._waitForPageReady();
+            // Connect to WhatsApp Web first
+            if (!this.webClient.isConnected) {
+                await this.webClient.initialize();
             }
             
-            // Check if already authenticated
-            const isAuthenticated = await this._checkAuthenticationStatus();
-            if (isAuthenticated) {
-                this.logger.info('Already authenticated');
-                this._setState('authenticated', true);
-                this.emit(EventTypes.AUTHENTICATED);
-                return;
-            }
+            // Generate and display QR code
+            await this._generateAndDisplayQR();
             
-            // Wait for QR code to appear
-            await this._waitForQRCode();
-            
-            // Start QR monitoring
-            await this._monitorQRCode();
+            // Start QR refresh timer
+            this._startQRRefreshTimer();
             
             // Wait for authentication
             await this._waitForAuthentication();
             
+            // Clear QR refresh timer
+            this._clearQRRefreshTimer();
+            
             this._setState('authenticated', true);
             this.emit(EventTypes.AUTHENTICATED);
-            this.logger.info('QR authentication successful');
+            this.logger.info('✅ QR authentication successful!');
             
         } catch (error) {
+            this._clearQRRefreshTimer();
             throw new AuthenticationError(`QR authentication failed: ${error.message}`, 'QR_AUTH_FAILED', { error });
         }
     }
 
     /**
-     * Wait for QR code to appear
+     * Generate and display QR code
      */
-    async _waitForQRCode() {
+    async _generateAndDisplayQR() {
         try {
-            this.logger.info('Waiting for QR code...');
+            // Generate QR code from WhatsApp Web
+            const qrData = await this.webClient.generateQRCode();
             
-            await this.page.waitForSelector('[data-testid="qr-code"]', { 
-                timeout: 30000,
-                visible: true 
+            if (!qrData) {
+                throw new Error('Failed to generate QR code');
+            }
+            
+            this.state.qrData = qrData;
+            
+            // Display QR code
+            await this.qrHandler.displayQRCode(qrData, {
+                terminal: true,
+                save: true,
+                format: 'png'
             });
             
-            this.logger.info('QR code detected');
+            this.emit(EventTypes.QR_GENERATED, {
+                data: qrData,
+                timestamp: Date.now(),
+                expires: Date.now() + 30000 // 30 seconds
+            });
             
         } catch (error) {
-            throw new AuthenticationError('QR code not found', 'QR_NOT_FOUND', { error });
+            this.logger.error('❌ Failed to generate QR code:', error);
+            throw error;
         }
     }
 
     /**
-     * Monitor QR code changes
+     * Start QR refresh timer
      */
-    async _monitorQRCode() {
-        try {
-            let lastQRData = null;
-            
-            const checkQR = async () => {
-                try {
-                    const qrElement = await this.page.$('[data-testid="qr-code"]');
-                    if (!qrElement) {
-                        return null;
-                    }
-                    
-                    const qrData = await qrElement.getAttribute('data-ref');
-                    if (!qrData) {
-                        // Try to get QR data from canvas or image
-                        const qrCanvas = await this.page.$('[data-testid="qr-code"] canvas');
-                        if (qrCanvas) {
-                            const qrDataUrl = await this.page.evaluate((canvas) => {
-                                return canvas.toDataURL();
-                            }, qrCanvas);
-                            return qrDataUrl;
-                        }
-                    }
-                    
-                    return qrData;
-                } catch (error) {
-                    this.logger.warn('Error checking QR code:', error);
-                    return null;
+    _startQRRefreshTimer() {
+        this._clearQRRefreshTimer();
+        
+        this.qrRefreshInterval = setInterval(async () => {
+            try {
+                if (!this.state.authenticated) {
+                    this.logger.info('🔄 Refreshing QR code...');
+                    await this._generateAndDisplayQR();
                 }
-            };
-            
-            // Initial QR code display
-            const initialQR = await checkQR();
-            if (initialQR) {
-                await this._displayQRCode(initialQR);
-                lastQRData = initialQR;
+            } catch (error) {
+                this.logger.error('❌ Failed to refresh QR code:', error);
             }
-            
-            // Monitor for QR code changes
-            const qrMonitor = setInterval(async () => {
-                const currentQR = await checkQR();
-                if (currentQR && currentQR !== lastQRData) {
-                    await this._displayQRCode(currentQR);
-                    lastQRData = currentQR;
-                }
-            }, 5000);
-            
-            // Store interval for cleanup
-            this.qrMonitorInterval = qrMonitor;
-            
-        } catch (error) {
-            this.logger.error('Error monitoring QR code:', error);
-        }
+        }, 30000); // Refresh every 30 seconds
     }
 
     /**
-     * Display QR code
+     * Clear QR refresh timer
      */
-    async _displayQRCode(qrData) {
-        try {
-            // Display in terminal
-            if (qrData.startsWith('data:image')) {
-                // Handle data URL
-                this.logger.info('QR Code updated (data URL format)');
-                console.log('\n📱 Scan the QR code above with your WhatsApp mobile app\n');
-            } else {
-                // Display QR in terminal
-                qrTerminal.generate(qrData, { small: true });
-                console.log('\n📱 Scan the QR code above with your WhatsApp mobile app\n');
-            }
-            
-            // Save QR code as image
-            await this.qrHandler.generateQRCode(qrData, {
-                terminal: false,
-                png: true,
-                dataURL: true
-            });
-            
-        } catch (error) {
-            this.logger.error('Error displaying QR code:', error);
+    _clearQRRefreshTimer() {
+        if (this.qrRefreshInterval) {
+            clearInterval(this.qrRefreshInterval);
+            this.qrRefreshInterval = null;
         }
     }
 
@@ -908,99 +488,54 @@ class ChatPulse extends EventEmitter {
     async _waitForAuthentication() {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
-                if (this.qrMonitorInterval) {
-                    clearInterval(this.qrMonitorInterval);
-                }
                 reject(new AuthenticationError('Authentication timeout', 'AUTH_TIMEOUT'));
             }, this.options.authTimeout || 120000);
             
-            // Check authentication status periodically
-            const authCheck = setInterval(async () => {
-                try {
-                    const isAuthenticated = await this._checkAuthenticationStatus();
-                    if (isAuthenticated) {
-                        clearTimeout(timeout);
-                        clearInterval(authCheck);
-                        if (this.qrMonitorInterval) {
-                            clearInterval(this.qrMonitorInterval);
-                        }
-                        resolve(true);
-                    }
-                } catch (error) {
-                    this.logger.warn('Error checking authentication:', error);
-                }
-            }, 2000);
+            // Listen for authentication success
+            const onAuthenticated = () => {
+                clearTimeout(timeout);
+                this.webClient.removeListener('authenticated', onAuthenticated);
+                resolve(true);
+            };
+            
+            this.webClient.on('authenticated', onAuthenticated);
         });
     }
 
     /**
-     * Check authentication status
-     */
-    async _checkAuthenticationStatus() {
-        try {
-            if (!this.page) return false;
-            
-            // Check for main WhatsApp interface elements
-            const isAuthenticated = await this.page.evaluate(() => {
-                // Check for chat list or main interface
-                return !!(
-                    document.querySelector('[data-testid="chat-list"]') ||
-                    document.querySelector('div[data-testid="conversation-panel-wrapper"]') ||
-                    document.querySelector('div[role="main"]') ||
-                    (document.querySelector('div[data-testid="intro-md-beta-logo-dark"], div[data-testid="intro-md-beta-logo-light"]') && 
-                     !document.querySelector('[data-testid="qr-code"]'))
-                );
-            });
-            
-            return isAuthenticated;
-            
-        } catch (error) {
-            this.logger.warn('Error checking authentication status:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Enhanced authenticate with QR code using real WhatsApp Web
-     */
-    async _authenticateWithQRReal() {
-        
-        // Use enhanced QR authentication
-        await this._authenticateWithQR();
-        
-    }
-
-    /**
-     * Authenticate with pairing code
+     * Pairing code authentication
      */
     async _authenticateWithPairing() {
-        if (!this.options.pairingNumber) {
-            throw new AuthenticationError('Pairing number is required for pairing authentication');
-        }
-        
-        this.logger.info('Starting pairing code authentication...');
-        
-        // Generate pairing code
-        const pairingCode = this._generatePairingCode();
-        
-        this.logger.info(`Pairing Code: ${pairingCode}`);
-        this.emit(EventTypes.PAIRING_CODE, pairingCode);
-        
-        // Wait for authentication
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new AuthenticationError('Pairing authentication timeout'));
-            }, this.options.authTimeout || 120000);
+        try {
+            this.logger.info('📞 Starting pairing code authentication...');
             
-            // Simulate authentication after delay
-            setTimeout(() => {
-                clearTimeout(timeout);
-                this._setState('authenticated', true);
-                this.emit(EventTypes.AUTHENTICATED);
-                this.logger.info('Pairing authentication successful');
-                resolve(true);
-            }, 15000); // 15 second simulation
-        });
+            if (!this.options.pairingNumber) {
+                throw new AuthenticationError('Pairing number is required for pairing authentication');
+            }
+            
+            // Connect to WhatsApp Web
+            if (!this.webClient.isConnected) {
+                await this.webClient.initialize();
+            }
+            
+            // Request pairing code
+            const pairingCode = await this.webClient.requestPairingCode(this.options.pairingNumber);
+            
+            this.logger.info(`📱 Pairing Code: ${pairingCode}`);
+            console.log(`\n📱 Enter this pairing code in your WhatsApp mobile app: ${pairingCode}\n`);
+            
+            this.emit(EventTypes.PAIRING_CODE, pairingCode);
+            
+            // Wait for authentication
+            await this._waitForAuthentication();
+            
+            this._setState('authenticated', true);
+            this.emit(EventTypes.AUTHENTICATED);
+            this.logger.info('✅ Pairing authentication successful!');
+            
+        } catch (error) {
+            throw new AuthenticationError(`Pairing authentication failed: ${error.message}`, 'PAIRING_AUTH_FAILED', { error });
+        }
     }
 
     /**
@@ -1008,260 +543,198 @@ class ChatPulse extends EventEmitter {
      */
     async _restoreSession() {
         try {
-            this.logger.info('Restoring session...');
+            this.logger.info('📂 Restoring session...');
             
-            // Check if browser session exists
-            if (this.options.userDataDir) {
-                const sessionPath = path.join(this.options.userDataDir, this.options.sessionName);
-                if (await fs.pathExists(sessionPath)) {
-                    // Initialize browser with existing session
-                    await this._initializeBrowser();
-                    await this._navigateToWhatsApp();
-                    await this._waitForPageReady();
-                    
-                    // Check if still authenticated
-                    const isAuthenticated = await this._checkAuthenticationStatus();
-                    if (isAuthenticated) {
-                        this._setState('authenticated', true);
-                        this._setState('connection', ConnectionStates.READY);
-                        this.emit(EventTypes.READY);
-                        this.logger.info('Session restored successfully');
-                        return;
-                    }
-                }
+            const sessionData = await this.sessionManager.loadSessionData('auth');
+            if (!sessionData || !sessionData.authenticated) {
+                throw new Error('No valid session data found');
             }
             
-            // If session restore fails, start new authentication
-            throw new Error('Session restore failed');
+            // Try to restore connection
+            await this.webClient.initialize();
+            
+            // Validate session is still active
+            const isValid = await this.webClient.validateSession();
+            
+            if (isValid) {
+                this._setState('authenticated', true);
+                this._setState('connection', ConnectionStates.READY);
+                this._setState('ready', true);
+                this.emit(EventTypes.READY);
+                this.logger.info('✅ Session restored successfully');
+                return;
+            } else {
+                throw new Error('Session is no longer valid');
+            }
             
         } catch (error) {
-            this.logger.warn('Failed to restore session:', error);
+            this.logger.warn('⚠️ Failed to restore session:', error.message);
             await this._startAuthentication();
         }
     }
 
     /**
-     * Setup message monitoring
+     * Establish connection with retry logic
      */
-    async _setupMessageMonitoring() {
-        try {
-            if (!this.page) {
-                return;
-            }
-            
-            // Inject message monitoring script
-            await this.page.evaluateOnNewDocument(() => {
-                // Monitor for new messages
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        if (mutation.type === 'childList') {
-                            mutation.addedNodes.forEach((node) => {
-                                if (node.nodeType === Node.ELEMENT_NODE) {
-                                    // Check for message elements
-                                    const messageElements = node.querySelectorAll('[data-testid="msg-container"]');
-                                    messageElements.forEach((msgElement) => {
-                                        // Extract message data and emit to Node.js
-                                        window.chatPulseMessageReceived && window.chatPulseMessageReceived(msgElement);
-                                    });
-                                }
-                            });
-                        }
-                    });
-                });
+    async _establishConnection() {
+        let lastError;
+        
+        for (let attempt = 1; attempt <= this.maxConnectionAttempts; attempt++) {
+            try {
+                this.logger.info(`🔄 Connection attempt ${attempt}/${this.maxConnectionAttempts}`);
                 
-                // Start observing when DOM is ready
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', () => {
-                        observer.observe(document.body, { childList: true, subtree: true });
-                    });
-                } else {
-                    observer.observe(document.body, { childList: true, subtree: true });
+                // Wait for web client to be ready
+                await this._waitForWebClientReady();
+                
+                // Start heartbeat
+                this._startHeartbeat();
+                
+                return; // Success
+                
+            } catch (error) {
+                lastError = error;
+                this.logger.warn(`⚠️ Connection attempt ${attempt} failed:`, error.message);
+                
+                if (attempt < this.maxConnectionAttempts) {
+                    const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+                    this.logger.info(`⏳ Retrying in ${delay}ms...`);
+                    await this._delay(delay);
                 }
-            });
-            
-            // Expose message handler to page
-            await this.page.exposeFunction('chatPulseMessageReceived', (messageData) => {
-                this._handleIncomingMessage(messageData);
-            });
-            
-        } catch (error) {
-            this.logger.error('Error setting up message monitoring:', error);
+            }
         }
+        
+        throw new ConnectionError(`Failed to establish connection after ${this.maxConnectionAttempts} attempts: ${lastError.message}`);
     }
 
     /**
-     * Handle incoming message
+     * Wait for web client to be ready
      */
-    async _handleIncomingMessage(messageData) {
-        try {
-            // Parse message data
-            let message;
-            try {
-                message = this.protocolHandler.parseMessage(messageData);
-            } catch (parseError) {
-                this.logger.warn('Failed to parse incoming message:', parseError);
-                message = {
-                    type: 'unknown',
-                    data: messageData,
-                    timestamp: Date.now(),
-                    parseError: parseError.message
-                };
-            }
+    async _waitForWebClientReady() {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Web client ready timeout'));
+            }, 30000);
             
-            if (!message) {
-                this.logger.warn('Parsed message is null or undefined');
+            if (this.webClient.isConnected) {
+                clearTimeout(timeout);
+                resolve();
                 return;
             }
             
-            // Handle different message types
-            try {
-                switch (message.type) {
-                    case 'message':
-                    case 'text':
-                    case 'image':
-                    case 'video':
-                    case 'audio':
-                    case 'document':
-                    case 'sticker':
-                    case 'location':
-                    case 'contact':
-                    case 'buttons_response':
-                    case 'list_response':
-                    case 'poll_update':
-                        this.messageHandler.handleIncomingMessage(message);
-                        break;
-                    case 'presence':
-                        this.emit(EventTypes.PRESENCE_UPDATE, message);
-                        break;
-                    case 'call':
-                        this.emit(EventTypes.CALL, message);
-                        break;
-                    case 'ack':
-                        this.emit(EventTypes.MESSAGE_ACK, message);
-                        break;
-                    case 'receipt':
-                        this.emit('message_receipt', message);
-                        break;
-                    default:
-                        this.logger.debug(`Unhandled message type: ${message.type}`);
-                        this.emit('unknown_message', message);
-                }
-            } catch (handlerError) {
-                this.logger.error(`Error handling message type ${message.type}:`, handlerError);
-                await this.errorHandler.handleError(handlerError, { 
-                    context: 'message_handler', 
-                    messageType: message.type,
-                    messageId: message.id 
-                });
-            }
+            const onConnected = () => {
+                clearTimeout(timeout);
+                this.webClient.removeListener('connected', onConnected);
+                resolve();
+            };
             
-        } catch (error) {
-            this.logger.error('Failed to handle WebSocket message:', error);
-            await this.errorHandler.handleError(error, { 
-                context: 'websocket_message_handler',
-                dataLength: data?.length || 0,
-                dataType: typeof data
-            });
-        }
+            this.webClient.on('connected', onConnected);
+        });
     }
 
     /**
-     * Decrypt E2E encrypted message
+     * Setup web client event handlers
      */
-    async _decryptMessage(encryptedData) {
-        try {
-            if (!this.signalStore) {
-                return encryptedData;
-            }
-            
-            // Implement Signal Protocol decryption
-            // This is a placeholder - actual implementation would use libsignal
-            return encryptedData;
-            
-        } catch (error) {
-            this.logger.error('Failed to decrypt message:', error);
-            return encryptedData;
-        }
+    _setupWebClientHandlers() {
+        this.webClient.on('qr_code', (qrInfo) => {
+            this.emit(EventTypes.QR_GENERATED, qrInfo);
+        });
+        
+        this.webClient.on('qr_update', (qrInfo) => {
+            this.emit(EventTypes.QR_UPDATED, qrInfo);
+        });
+        
+        this.webClient.on('authenticated', (authData) => {
+            this._setState('authenticated', true);
+            this.emit(EventTypes.AUTHENTICATED, authData);
+        });
+        
+        this.webClient.on('message', (message) => {
+            this.messageHandler.handleIncomingMessage(message);
+        });
+        
+        this.webClient.on('disconnected', () => {
+            this._handleDisconnection();
+        });
+        
+        this.webClient.on('error', (error) => {
+            this.errorHandler.handleError(error, { context: 'web_client' });
+        });
     }
 
     /**
-     * Start heartbeat mechanism
+     * Handle connection errors with specific recovery strategies
      */
-    _startHeartbeat() {
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
+    async _handleConnectionError(error) {
+        const errorType = this._classifyConnectionError(error);
+        
+        switch (errorType) {
+            case 'NETWORK_ERROR':
+                this.logger.warn('🌐 Network error detected, will retry with backoff');
+                break;
+            case 'AUTH_ERROR':
+                this.logger.warn('🔐 Authentication error, clearing session');
+                await this.sessionManager.deleteSession();
+                break;
+            case 'RATE_LIMIT':
+                this.logger.warn('⏱️ Rate limit detected, implementing delay');
+                break;
+            case 'SERVER_ERROR':
+                this.logger.warn('🖥️ Server error detected, will retry');
+                break;
+            default:
+                this.logger.error('❌ Unknown connection error:', error);
         }
         
-        this.heartbeatInterval = setInterval(() => {
-            try {
-                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                    this.ws.ping();
-                    this.logger.debug('Heartbeat ping sent');
-                } else {
-                    this.logger.warn('Cannot send heartbeat - WebSocket not open');
-                    this._handleDisconnection();
-                }
-            } catch (error) {
-                this.logger.error('Error sending heartbeat:', error);
-                this._handleDisconnection();
-            }
-        }, this.options.heartbeatInterval || 30000);
-        
-        // Check for missed heartbeats
-        setInterval(() => {
-            const now = Date.now();
-            const lastHeartbeat = this.state.lastHeartbeat || now;
-            const timeSinceLastHeartbeat = now - lastHeartbeat;
-            
-            if (timeSinceLastHeartbeat > (this.options.heartbeatInterval || 30000) * 3) {
-                this.logger.warn('Heartbeat timeout detected, triggering reconnection');
-                this._handleDisconnection();
-            }
-        }, (this.options.heartbeatInterval || 30000) * 2);
+        // Schedule reconnection if auto-reconnect is enabled
+        if (this.options.autoReconnect && this.state.reconnectAttempts < (this.options.maxReconnectAttempts || 10)) {
+            this._scheduleReconnect();
+        }
     }
 
     /**
-     * Handle disconnection
+     * Classify connection errors
+     */
+    _classifyConnectionError(error) {
+        const message = error.message.toLowerCase();
+        
+        if (message.includes('network') || message.includes('timeout')) {
+            return 'NETWORK_ERROR';
+        } else if (message.includes('auth') || message.includes('unauthorized')) {
+            return 'AUTH_ERROR';
+        } else if (message.includes('rate') || message.includes('limit')) {
+            return 'RATE_LIMIT';
+        } else if (message.includes('server') || message.includes('503') || message.includes('502')) {
+            return 'SERVER_ERROR';
+        }
+        
+        return 'UNKNOWN_ERROR';
+    }
+
+    /**
+     * Handle disconnection with enhanced recovery
      */
     _handleDisconnection() {
         if (this.state.connection === ConnectionStates.DISCONNECTED) {
             return; // Already handling disconnection
         }
         
+        this.logger.warn('🔌 Connection lost, handling disconnection...');
+        
         this._setState('connection', ConnectionStates.DISCONNECTED);
+        this._clearIntervals();
+        
         this.emit(EventTypes.DISCONNECTED);
         
-        // Clear heartbeat
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
-        }
-        
-        // Close WebSocket if still open
-        if (this.ws) {
-            try {
-                if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
-                    this.ws.close();
-                }
-            } catch (error) {
-                this.logger.warn('Error closing WebSocket during disconnection:', error);
-            }
-            this.ws = null;
-        }
-        
-        // Auto-reconnect if enabled
+        // Auto-reconnect if enabled and authenticated
         if (this.options.autoReconnect && 
-            this.state.reconnectAttempts < (this.options.maxReconnectAttempts || 10) &&
-            this.state.authenticated) {
+            this.state.authenticated &&
+            this.state.reconnectAttempts < (this.options.maxReconnectAttempts || 10)) {
             this._scheduleReconnect();
-        } else if (this.state.reconnectAttempts >= (this.options.maxReconnectAttempts || 10)) {
-            this.logger.error('Maximum reconnection attempts reached');
-            this.emit('max_reconnect_attempts_reached');
         }
     }
 
     /**
-     * Schedule reconnection attempt
+     * Schedule reconnection with exponential backoff
      */
     _scheduleReconnect() {
         if (this.reconnectTimeout) {
@@ -1272,69 +745,76 @@ class ChatPulse extends EventEmitter {
         const maxDelay = 60000; // Maximum 1 minute delay
         const delay = Math.min(baseDelay * Math.pow(2, this.state.reconnectAttempts), maxDelay);
         
+        this.state.reconnectAttempts++;
+        
+        this.logger.info(`🔄 Scheduling reconnection in ${delay}ms (attempt ${this.state.reconnectAttempts}/${this.options.maxReconnectAttempts || 10})`);
+        
         this.reconnectTimeout = setTimeout(async () => {
             try {
-                this.state.reconnectAttempts++;
                 this._setState('connection', ConnectionStates.RECONNECTING);
                 this.emit(EventTypes.RECONNECTING);
                 
-                this.logger.info(`Attempting reconnection (${this.state.reconnectAttempts}/${this.options.maxReconnectAttempts || 10})`);
                 await this.connect();
                 this.state.reconnectAttempts = 0;
-                this.logger.info('Reconnection successful');
+                this.logger.info('✅ Reconnection successful');
                 
             } catch (error) {
-                this.logger.error('Reconnection failed:', error);
+                this.logger.error('❌ Reconnection failed:', error);
                 
-                // Only schedule another reconnect if we haven't exceeded max attempts
                 if (this.state.reconnectAttempts < (this.options.maxReconnectAttempts || 10)) {
                     this._scheduleReconnect();
                 } else {
                     this._setState('connection', ConnectionStates.FAILED);
                     this.emit('reconnection_failed');
+                    this.logger.error('❌ Maximum reconnection attempts reached');
                 }
             }
         }, delay);
-        
-        this.logger.info(`Reconnecting in ${delay}ms (attempt ${this.state.reconnectAttempts + 1}/${this.options.maxReconnectAttempts || 10})`);
     }
 
     /**
-     * Wait for WebSocket connection
+     * Start heartbeat mechanism
      */
-    _waitForConnection() {
-        return new Promise((resolve, reject) => {
-            if (!this.ws) {
-                reject(new Error('WebSocket not initialized'));
-                return;
+    _startHeartbeat() {
+        this._clearHeartbeat();
+        
+        this.heartbeatInterval = setInterval(() => {
+            try {
+                if (this.webClient && this.webClient.isConnected) {
+                    this.webClient.ping();
+                    this.logger.debug('💓 Heartbeat sent');
+                } else {
+                    this.logger.warn('⚠️ Cannot send heartbeat - not connected');
+                    this._handleDisconnection();
+                }
+            } catch (error) {
+                this.logger.error('❌ Heartbeat error:', error);
+                this._handleDisconnection();
             }
-            
-            // Check if already open
-            if (this.ws.readyState === WebSocket.OPEN) {
-                resolve();
-                return;
-            }
-            
-            const timeout = setTimeout(() => {
-                reject(new ConnectionError('Connection timeout', 'TIMEOUT'));
-            }, this.options.connectionTimeout || 30000);
-            
-            this.ws.once('open', () => {
-                clearTimeout(timeout);
-                this.state.lastHeartbeat = Date.now();
-                resolve();
-            });
-            
-            this.ws.once('error', (error) => {
-                clearTimeout(timeout);
-                reject(new ConnectionError(`WebSocket error: ${error.message}`, 'WS_ERROR', { error }));
-            });
-            
-            this.ws.once('close', (code, reason) => {
-                clearTimeout(timeout);
-                reject(new ConnectionError(`WebSocket closed during connection: ${code} ${reason?.toString() || ''}`, 'WS_CLOSED'));
-            });
-        });
+        }, this.options.heartbeatInterval || 30000);
+    }
+
+    /**
+     * Clear all intervals and timeouts
+     */
+    _clearIntervals() {
+        this._clearHeartbeat();
+        this._clearQRRefreshTimer();
+        
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+    }
+
+    /**
+     * Clear heartbeat interval
+     */
+    _clearHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     }
 
     /**
@@ -1347,77 +827,57 @@ class ChatPulse extends EventEmitter {
                 // Save session data
                 await this.sessionManager.saveSessionData('auth', {
                     authenticated: true,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    clientInfo: this.state.clientInfo
                 });
-                
-                // Connect if not already connected
-                if (!this.isConnected) {
-                    await this.connect();
-                }
                 
                 // Mark as ready
                 this._setState('ready', true);
                 this._setState('connection', ConnectionStates.READY);
+                this._setState('connectedAt', Date.now());
+                
                 this.emit(EventTypes.READY);
+                this.logger.info('🎉 ChatPulse is ready!');
                 
             } catch (error) {
-                this.logger.error('Error after authentication:', error);
+                this.logger.error('❌ Error after authentication:', error);
             }
         });
         
         // Handle errors
         this.on('error', (error) => {
-            this.logger.error('ChatPulse error:', error);
+            this.logger.error('❌ ChatPulse error:', error);
+        });
+        
+        // Handle process termination
+        process.on('SIGINT', () => {
+            this.logger.info('🛑 Received SIGINT, gracefully shutting down...');
+            this.disconnect().finally(() => process.exit(0));
+        });
+        
+        process.on('SIGTERM', () => {
+            this.logger.info('🛑 Received SIGTERM, gracefully shutting down...');
+            this.disconnect().finally(() => process.exit(0));
         });
     }
 
     /**
-     * Set state value
+     * Set state value with logging
      */
     _setState(key, value) {
+        const oldValue = this.state[key];
         this.state[key] = value;
-        this.logger.debug(`State changed: ${key} = ${value}`);
-    }
-
-    /**
-     * Generate QR data
-     */
-    _generateQRData() {
-        const timestamp = Date.now();
-        const random = Math.random().toString(36).substring(2);
-        return `2@${timestamp},${random},1`;
-    }
-
-    /**
-     * Generate pairing code
-     */
-    _generatePairingCode() {
-        return Math.random().toString(36).substring(2, 8).toUpperCase();
-    }
-
-    /**
-     * Attempt reconnection
-     */
-    async _attemptReconnection() {
-        try {
-            await this.connect();
-            return true;
-        } catch (error) {
-            this.logger.error('Reconnection attempt failed:', error);
-            return false;
+        
+        if (oldValue !== value) {
+            this.logger.debug(`📊 State changed: ${key} = ${value} (was: ${oldValue})`);
         }
     }
 
     /**
-     * Check network connectivity
+     * Utility delay function
      */
-    async _checkNetworkConnectivity() {
-        try {
-            // Simple connectivity check
-            return true;
-        } catch (error) {
-            return false;
-        }
+    _delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 

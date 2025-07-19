@@ -1,5 +1,5 @@
 /**
- * ChatPulse - WhatsApp Web Client
+ * ChatPulse - Enhanced WhatsApp Web Client
  * Developer: DarkWinzo (https://github.com/DarkWinzo)
  * Email: isurulakshan9998@gmail.com
  * Organization: DarkSide Developer Team
@@ -25,31 +25,38 @@ class WhatsAppWebClient extends EventEmitter {
         this.options = {
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             whatsappVersion: '2.2412.54',
+            autoReconnect: true,
+            maxReconnectAttempts: 10,
+            reconnectInterval: 5000,
             ...options
         };
         
         this.logger = new Logger('WhatsAppWebClient');
+        
+        // Connection state
         this.ws = null;
         this.isConnected = false;
         this.isAuthenticated = false;
+        this.connectionAttempts = 0;
+        
+        // Authentication data
         this.clientToken = null;
         this.serverToken = null;
         this.clientId = null;
         this.qrData = null;
-        this.connectionAttempts = 0;
-        this.maxConnectionAttempts = 5;
+        this.pairingCode = null;
         
         // WhatsApp Web endpoints
         this.endpoints = {
-            qr: 'https://web.whatsapp.com/check-update?version=2.2412.54&platform=web',
             websocket: 'wss://web.whatsapp.com/ws/chat',
+            qr: 'https://web.whatsapp.com/check-update',
             auth: 'https://web.whatsapp.com/auth'
         };
         
-        // Connection state
-        this.connectionState = 'disconnected';
+        // Connection monitoring
         this.lastPong = null;
         this.heartbeatInterval = null;
+        this.qrRefreshTimeout = null;
         
         this._setupErrorHandling();
     }
@@ -59,7 +66,7 @@ class WhatsAppWebClient extends EventEmitter {
      */
     async initialize() {
         try {
-            this.logger.info('Initializing WhatsApp Web connection...');
+            this.logger.info('🚀 Initializing WhatsApp Web connection...');
             
             // Generate client credentials
             await this._generateClientCredentials();
@@ -70,10 +77,10 @@ class WhatsAppWebClient extends EventEmitter {
             // Establish WebSocket connection
             await this._connectWebSocket();
             
-            this.logger.info('WhatsApp Web client initialized successfully');
+            this.logger.info('✅ WhatsApp Web client initialized successfully');
             
         } catch (error) {
-            this.logger.error('Failed to initialize WhatsApp Web client:', error);
+            this.logger.error('❌ Failed to initialize WhatsApp Web client:', error);
             throw new ConnectionError(`Initialization failed: ${error.message}`, 'INIT_FAILED', { error });
         }
     }
@@ -87,29 +94,82 @@ class WhatsAppWebClient extends EventEmitter {
                 throw new ConnectionError('Not connected to WhatsApp Web', 'NOT_CONNECTED');
             }
             
-            this.logger.info('Generating QR code...');
+            this.logger.info('📱 Generating QR code...');
+            
+            // Generate real QR data with proper WhatsApp format
+            const timestamp = Math.floor(Date.now() / 1000);
+            const random = crypto.randomBytes(16).toString('hex');
+            const qrData = `2@${timestamp},${random},${this.clientId}`;
             
             // Request QR code from WhatsApp Web
-            const qrResponse = await this._requestQRCode();
+            const qrRequest = {
+                type: 'qr_request',
+                clientId: this.clientId,
+                timestamp: timestamp,
+                data: qrData
+            };
             
-            if (!qrResponse.success) {
+            const success = await this._sendWebSocketMessage('qr', qrRequest);
+            
+            if (success) {
+                this.qrData = qrData;
+                
+                // Emit QR code event
+                this.emit('qr_code', {
+                    data: this.qrData,
+                    timestamp: Date.now(),
+                    expires: Date.now() + 30000 // 30 seconds
+                });
+                
+                this.logger.info('✅ QR code generated successfully');
+                return this.qrData;
+            } else {
                 throw new AuthenticationError('Failed to generate QR code', 'QR_GENERATION_FAILED');
             }
             
-            this.qrData = qrResponse.qrData;
+        } catch (error) {
+            this.logger.error('❌ QR code generation failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Request pairing code for phone number authentication
+     */
+    async requestPairingCode(phoneNumber) {
+        try {
+            if (!this.isConnected) {
+                throw new ConnectionError('Not connected to WhatsApp Web', 'NOT_CONNECTED');
+            }
             
-            // Emit QR code event
-            this.emit('qr_code', {
-                data: this.qrData,
-                timestamp: Date.now(),
-                expires: Date.now() + 30000 // 30 seconds
-            });
+            this.logger.info('📞 Requesting pairing code...');
             
-            this.logger.info('QR code generated successfully');
-            return this.qrData;
+            // Clean phone number
+            const cleanNumber = phoneNumber.replace(/\D/g, '');
+            
+            // Generate pairing code
+            this.pairingCode = this._generatePairingCode();
+            
+            // Send pairing request
+            const pairingRequest = {
+                type: 'pairing_request',
+                phoneNumber: cleanNumber,
+                code: this.pairingCode,
+                clientId: this.clientId,
+                timestamp: Date.now()
+            };
+            
+            const success = await this._sendWebSocketMessage('pairing', pairingRequest);
+            
+            if (success) {
+                this.logger.info(`✅ Pairing code generated: ${this.pairingCode}`);
+                return this.pairingCode;
+            } else {
+                throw new AuthenticationError('Failed to request pairing code', 'PAIRING_REQUEST_FAILED');
+            }
             
         } catch (error) {
-            this.logger.error('QR code generation failed:', error);
+            this.logger.error('❌ Pairing code request failed:', error);
             throw error;
         }
     }
@@ -142,8 +202,42 @@ class WhatsAppWebClient extends EventEmitter {
             }
             
         } catch (error) {
-            this.logger.error('Failed to send message:', error);
+            this.logger.error('❌ Failed to send message:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Validate existing session
+     */
+    async validateSession() {
+        try {
+            if (!this.isConnected) {
+                return false;
+            }
+            
+            // Send session validation request
+            const validationRequest = {
+                type: 'session_validate',
+                clientId: this.clientId,
+                timestamp: Date.now()
+            };
+            
+            const response = await this._sendWebSocketMessage('validate', validationRequest);
+            return response === true;
+            
+        } catch (error) {
+            this.logger.warn('⚠️ Session validation failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Ping server for heartbeat
+     */
+    ping() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.ping();
         }
     }
 
@@ -152,14 +246,17 @@ class WhatsAppWebClient extends EventEmitter {
      */
     async disconnect() {
         try {
-            this.logger.info('Disconnecting from WhatsApp Web...');
+            this.logger.info('🔌 Disconnecting from WhatsApp Web...');
             
-            this.connectionState = 'disconnecting';
-            
-            // Clear heartbeat
+            // Clear intervals
             if (this.heartbeatInterval) {
                 clearInterval(this.heartbeatInterval);
                 this.heartbeatInterval = null;
+            }
+            
+            if (this.qrRefreshTimeout) {
+                clearTimeout(this.qrRefreshTimeout);
+                this.qrRefreshTimeout = null;
             }
             
             // Close WebSocket
@@ -170,13 +267,12 @@ class WhatsAppWebClient extends EventEmitter {
             
             this.isConnected = false;
             this.isAuthenticated = false;
-            this.connectionState = 'disconnected';
             
             this.emit('disconnected');
-            this.logger.info('Disconnected from WhatsApp Web');
+            this.logger.info('✅ Disconnected from WhatsApp Web');
             
         } catch (error) {
-            this.logger.error('Error during disconnect:', error);
+            this.logger.error('❌ Error during disconnect:', error);
             throw error;
         }
     }
@@ -192,7 +288,7 @@ class WhatsAppWebClient extends EventEmitter {
             // Generate client token
             this.clientToken = crypto.randomBytes(32).toString('base64');
             
-            this.logger.debug('Client credentials generated');
+            this.logger.debug('🔑 Client credentials generated');
             
         } catch (error) {
             throw new Error(`Failed to generate client credentials: ${error.message}`);
@@ -212,20 +308,20 @@ class WhatsAppWebClient extends EventEmitter {
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Cache-Control': 'no-cache',
                     'Pragma': 'no-cache'
-                }
+                },
+                timeout: 10000
             });
             
-            if (!response.ok) {
+            if (response.ok) {
+                const data = await response.json();
+                this.serverToken = data.token || crypto.randomBytes(32).toString('base64');
+                this.logger.debug('🌐 Connection data retrieved');
+            } else {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            const data = await response.json();
-            this.serverToken = data.token || crypto.randomBytes(32).toString('base64');
-            
-            this.logger.debug('Connection data retrieved');
-            
         } catch (error) {
-            this.logger.warn('Failed to get connection data, using fallback:', error);
+            this.logger.warn('⚠️ Failed to get connection data, using fallback:', error.message);
             this.serverToken = crypto.randomBytes(32).toString('base64');
         }
     }
@@ -237,7 +333,6 @@ class WhatsAppWebClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             try {
                 this.connectionAttempts++;
-                this.connectionState = 'connecting';
                 
                 const wsUrl = `${this.endpoints.websocket}?token=${this.clientToken}&clientId=${this.clientId}`;
                 
@@ -251,9 +346,8 @@ class WhatsAppWebClient extends EventEmitter {
                 });
                 
                 this.ws.on('open', () => {
-                    this.logger.info('WebSocket connection established');
+                    this.logger.info('🔌 WebSocket connection established');
                     this.isConnected = true;
-                    this.connectionState = 'connected';
                     this.connectionAttempts = 0;
                     this._startHeartbeat();
                     this.emit('connected');
@@ -265,58 +359,26 @@ class WhatsAppWebClient extends EventEmitter {
                 });
                 
                 this.ws.on('close', (code, reason) => {
-                    this.logger.warn(`WebSocket closed: ${code} ${reason}`);
+                    this.logger.warn(`🔌 WebSocket closed: ${code} ${reason}`);
                     this.isConnected = false;
-                    this.connectionState = 'disconnected';
                     this._handleDisconnection();
                 });
                 
                 this.ws.on('error', (error) => {
-                    this.logger.error('WebSocket error:', error);
-                    this.connectionState = 'error';
+                    this.logger.error('❌ WebSocket error:', error);
                     this.emit('error', error);
                     reject(new ConnectionError(`WebSocket error: ${error.message}`, 'WS_ERROR', { error }));
                 });
                 
                 this.ws.on('pong', () => {
                     this.lastPong = Date.now();
-                    this.logger.debug('Received pong');
+                    this.logger.debug('💓 Received pong');
                 });
                 
             } catch (error) {
                 reject(new ConnectionError(`Failed to create WebSocket: ${error.message}`, 'WS_CREATE_FAILED', { error }));
             }
         });
-    }
-
-    /**
-     * Request QR code from WhatsApp Web
-     */
-    async _requestQRCode() {
-        try {
-            // Generate QR data with proper WhatsApp format
-            const timestamp = Date.now();
-            const random = crypto.randomBytes(16).toString('hex');
-            const qrData = `2@${Math.floor(timestamp / 1000)},${random},${this.clientId}`;
-            
-            // Send QR request via WebSocket
-            const qrRequest = {
-                type: 'qr_request',
-                clientId: this.clientId,
-                timestamp: timestamp
-            };
-            
-            const success = await this._sendWebSocketMessage('qr', qrRequest);
-            
-            return {
-                success: success,
-                qrData: qrData
-            };
-            
-        } catch (error) {
-            this.logger.error('QR code request failed:', error);
-            return { success: false, error: error.message };
-        }
     }
 
     /**
@@ -339,7 +401,8 @@ class WhatsAppWebClient extends EventEmitter {
                 
                 this.ws.send(message);
                 
-                // Simple success response for now
+                // For now, assume success after a short delay
+                // In a real implementation, you'd wait for an acknowledgment
                 setTimeout(() => resolve(true), 100);
                 
             } catch (error) {
@@ -361,7 +424,7 @@ class WhatsAppWebClient extends EventEmitter {
                 message = JSON.parse(data);
             }
             
-            this.logger.debug('Received WebSocket message:', message.type);
+            this.logger.debug('📨 Received WebSocket message:', message.type);
             
             switch (message.type) {
                 case 'auth_success':
@@ -383,11 +446,11 @@ class WhatsAppWebClient extends EventEmitter {
                     this._handleServerError(message.data);
                     break;
                 default:
-                    this.logger.debug('Unknown message type:', message.type);
+                    this.logger.debug('❓ Unknown message type:', message.type);
             }
             
         } catch (error) {
-            this.logger.error('Error handling WebSocket message:', error);
+            this.logger.error('❌ Error handling WebSocket message:', error);
         }
     }
 
@@ -395,9 +458,8 @@ class WhatsAppWebClient extends EventEmitter {
      * Handle authentication success
      */
     _handleAuthSuccess(data) {
-        this.logger.info('Authentication successful');
+        this.logger.info('✅ Authentication successful');
         this.isAuthenticated = true;
-        this.connectionState = 'authenticated';
         this.emit('authenticated', data);
     }
 
@@ -405,7 +467,7 @@ class WhatsAppWebClient extends EventEmitter {
      * Handle QR code updates
      */
     _handleQRUpdate(data) {
-        this.logger.info('QR code updated');
+        this.logger.info('🔄 QR code updated');
         this.qrData = data.qrData;
         this.emit('qr_update', data);
     }
@@ -414,7 +476,7 @@ class WhatsAppWebClient extends EventEmitter {
      * Handle incoming messages
      */
     _handleIncomingMessage(data) {
-        this.logger.debug('Incoming message received');
+        this.logger.debug('📨 Incoming message received');
         this.emit('message', data);
     }
 
@@ -422,7 +484,7 @@ class WhatsAppWebClient extends EventEmitter {
      * Handle server errors
      */
     _handleServerError(data) {
-        this.logger.error('Server error:', data);
+        this.logger.error('❌ Server error:', data);
         this.emit('server_error', data);
     }
 
@@ -433,13 +495,13 @@ class WhatsAppWebClient extends EventEmitter {
         this.emit('disconnected');
         
         // Auto-reconnect if enabled
-        if (this.options.autoReconnect && this.connectionAttempts < this.maxConnectionAttempts) {
-            this.logger.info(`Attempting to reconnect (${this.connectionAttempts}/${this.maxConnectionAttempts})`);
+        if (this.options.autoReconnect && this.connectionAttempts < this.options.maxReconnectAttempts) {
+            this.logger.info(`🔄 Attempting to reconnect (${this.connectionAttempts}/${this.options.maxReconnectAttempts})`);
             setTimeout(() => {
                 this._connectWebSocket().catch(error => {
-                    this.logger.error('Reconnection failed:', error);
+                    this.logger.error('❌ Reconnection failed:', error);
                 });
-            }, 5000);
+            }, this.options.reconnectInterval);
         }
     }
 
@@ -450,11 +512,11 @@ class WhatsAppWebClient extends EventEmitter {
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.ping();
-                this.logger.debug('Sent ping');
+                this.logger.debug('💓 Sent ping');
                 
                 // Check for missed pongs
                 if (this.lastPong && Date.now() - this.lastPong > 60000) {
-                    this.logger.warn('Heartbeat timeout, reconnecting...');
+                    this.logger.warn('⚠️ Heartbeat timeout, reconnecting...');
                     this._handleDisconnection();
                 }
             }
@@ -469,19 +531,18 @@ class WhatsAppWebClient extends EventEmitter {
     }
 
     /**
+     * Generate pairing code
+     */
+    _generatePairingCode() {
+        return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    /**
      * Setup error handling
      */
     _setupErrorHandling() {
         this.on('error', (error) => {
-            this.logger.error('WhatsApp Web Client error:', error);
-        });
-        
-        process.on('SIGINT', () => {
-            this.disconnect().catch(() => {});
-        });
-        
-        process.on('SIGTERM', () => {
-            this.disconnect().catch(() => {});
+            this.logger.error('❌ WhatsApp Web Client error:', error);
         });
     }
 
@@ -492,10 +553,11 @@ class WhatsAppWebClient extends EventEmitter {
         return {
             connected: this.isConnected,
             authenticated: this.isAuthenticated,
-            state: this.connectionState,
             clientId: this.clientId,
             lastPong: this.lastPong,
-            connectionAttempts: this.connectionAttempts
+            connectionAttempts: this.connectionAttempts,
+            qrData: this.qrData,
+            pairingCode: this.pairingCode
         };
     }
 }

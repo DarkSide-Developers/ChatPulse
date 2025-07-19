@@ -13,7 +13,6 @@ const WebSocket = require('ws');
 const protobuf = require('protobufjs');
 const qrTerminal = require('qrcode-terminal');
 const pino = require('pino');
-const puppeteer = require('puppeteer');
 const fs = require('fs-extra');
 const path = require('path');
 
