@@ -13,6 +13,9 @@ const WebSocket = require('ws');
 const protobuf = require('protobufjs');
 const qrTerminal = require('qrcode-terminal');
 const pino = require('pino');
+const puppeteer = require('puppeteer');
+const fs = require('fs-extra');
+const path = require('path');
 
 const { DefaultConfig, mergeConfig } = require('../config/DefaultConfig');
 const { MessageHandler } = require('../handlers/MessageHandler');
@@ -75,6 +78,10 @@ class ChatPulse extends EventEmitter {
         this.webClient = new WebClient(this);
         this.protocolHandler = new ProtocolHandler(this);
         
+        // Browser and page instances
+        this.browser = null;
+        this.page = null;
+        this.isPageReady = false;
         // State management
         this.state = {
             connection: ConnectionStates.DISCONNECTED,
@@ -104,6 +111,9 @@ class ChatPulse extends EventEmitter {
         try {
             this.logger.info('Starting ChatPulse initialization...');
             
+            // Initialize browser first
+            await this._initializeBrowser();
+            
             // Initialize session manager
             await this.sessionManager.initialize();
             
@@ -116,7 +126,7 @@ class ChatPulse extends EventEmitter {
             // Check for existing session
             const hasSession = await this.sessionManager.sessionExists();
             
-            if (hasSession && this.options.authStrategy !== AuthStrategies.QR) {
+            if (hasSession) {
                 this.logger.info('Existing session found, attempting to restore...');
                 await this._restoreSession();
             } else {
@@ -137,36 +147,26 @@ class ChatPulse extends EventEmitter {
     async connect() {
         try {
             if (this.state.connection !== ConnectionStates.DISCONNECTED) {
-                this.logger.warn('Already connected or connecting, current state:', this.state.connection);
+                this.logger.warn(`Already connected or connecting, current state: ${this.state.connection}`);
                 return;
             }
             
             this._setState('connection', ConnectionStates.CONNECTING);
             this.logger.info('Connecting to WhatsApp Web...');
             
-            // Validate WebSocket endpoint
-            if (!this.options.wsEndpoint) {
-                throw new ConnectionError('WebSocket endpoint not configured');
+            // Ensure browser is ready
+            if (!this.browser || !this.page) {
+                await this._initializeBrowser();
             }
             
-            // Create WebSocket connection
-            try {
-                this.ws = new WebSocket(this.options.wsEndpoint, {
-                    headers: {
-                        'User-Agent': this.options.userAgent,
-                        'Origin': this.options.baseUrl
-                    },
-                    timeout: this.options.connectionTimeout
-                });
-            } catch (wsError) {
-                throw new ConnectionError(`Failed to create WebSocket: ${wsError.message}`, null, { wsError });
-            }
+            // Navigate to WhatsApp Web
+            await this._navigateToWhatsApp();
             
-            // Setup WebSocket event handlers
-            this._setupWebSocketHandlers();
+            // Setup page event handlers
+            this._setupPageHandlers();
             
-            // Wait for connection
-            await this._waitForConnection();
+            // Wait for page to be ready
+            await this._waitForPageReady();
             
             this.logger.info('Connected to WhatsApp Web');
             this._setState('connection', ConnectionStates.CONNECTED);
@@ -209,9 +209,22 @@ class ChatPulse extends EventEmitter {
             }
             
             // Close WebSocket
-            if (this.ws) {
-                this.ws.close();
-                this.ws = null;
+            if (this.page) {
+                try {
+                    await this.page.close();
+                } catch (error) {
+                    this.logger.warn('Error closing page:', error);
+                }
+                this.page = null;
+            }
+            
+            if (this.browser) {
+                try {
+                    await this.browser.close();
+                } catch (error) {
+                    this.logger.warn('Error closing browser:', error);
+                }
+                this.browser = null;
             }
             
             // Update state
@@ -225,6 +238,133 @@ class ChatPulse extends EventEmitter {
         } catch (error) {
             this.logger.error('Error during disconnect:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Initialize browser instance
+     */
+    async _initializeBrowser() {
+        try {
+            if (this.browser) {
+                return; // Already initialized
+            }
+            
+            this.logger.info('Initializing browser...');
+            
+            const browserOptions = {
+                headless: this.options.headless !== false ? 'new' : false,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu',
+                    '--disable-web-security',
+                    '--disable-features=VizDisplayCompositor',
+                    '--user-agent=' + (this.options.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                ],
+                defaultViewport: {
+                    width: 1366,
+                    height: 768
+                },
+                ignoreHTTPSErrors: true,
+                ...this.options.puppeteerOptions
+            };
+            
+            // Add user data directory if session exists
+            if (this.options.userDataDir) {
+                const userDataPath = path.join(this.options.userDataDir, this.options.sessionName);
+                await fs.ensureDir(userDataPath);
+                browserOptions.userDataDir = userDataPath;
+            }
+            
+            this.browser = await puppeteer.launch(browserOptions);
+            this.page = await this.browser.newPage();
+            
+            // Set additional page configurations
+            await this.page.setUserAgent(browserOptions.args.find(arg => arg.startsWith('--user-agent=')).split('=')[1]);
+            await this.page.setViewport({ width: 1366, height: 768 });
+            
+            this.logger.info('Browser initialized successfully');
+            
+        } catch (error) {
+            throw new ConnectionError(`Failed to initialize browser: ${error.message}`, 'BROWSER_INIT_FAILED', { error });
+        }
+    }
+
+    /**
+     * Navigate to WhatsApp Web
+     */
+    async _navigateToWhatsApp() {
+        try {
+            this.logger.info('Navigating to WhatsApp Web...');
+            
+            await this.page.goto('https://web.whatsapp.com', {
+                waitUntil: 'networkidle2',
+                timeout: 60000
+            });
+            
+            this.logger.info('Successfully navigated to WhatsApp Web');
+            
+        } catch (error) {
+            throw new ConnectionError(`Failed to navigate to WhatsApp Web: ${error.message}`, 'NAVIGATION_FAILED', { error });
+        }
+    }
+
+    /**
+     * Setup page event handlers
+     */
+    _setupPageHandlers() {
+        if (!this.page) return;
+        
+        // Handle page errors
+        this.page.on('error', (error) => {
+            this.logger.error('Page error:', error);
+            this.errorHandler.handleError(error, { context: 'page_error' });
+        });
+        
+        // Handle console messages
+        this.page.on('console', (msg) => {
+            if (msg.type() === 'error') {
+                this.logger.warn('Console error:', msg.text());
+            } else {
+                this.logger.debug('Console:', msg.text());
+            }
+        });
+        
+        // Handle page crashes
+        this.page.on('pageerror', (error) => {
+            this.logger.error('Page script error:', error);
+        });
+        
+        // Handle request failures
+        this.page.on('requestfailed', (request) => {
+            this.logger.warn('Request failed:', request.url(), request.failure().errorText);
+        });
+    }
+
+    /**
+     * Wait for page to be ready
+     */
+    async _waitForPageReady() {
+        try {
+            this.logger.info('Waiting for WhatsApp Web to load...');
+            
+            // Wait for either QR code or main interface
+            await this.page.waitForFunction(() => {
+                return document.querySelector('[data-testid="qr-code"]') || 
+                       document.querySelector('[data-testid="chat-list"]') ||
+                       document.querySelector('div[data-testid="intro-md-beta-logo-dark"], div[data-testid="intro-md-beta-logo-light"]');
+            }, { timeout: 30000 });
+            
+            this.isPageReady = true;
+            this.logger.info('WhatsApp Web page is ready');
+            
+        } catch (error) {
+            throw new ConnectionError(`WhatsApp Web failed to load: ${error.message}`, 'PAGE_LOAD_FAILED', { error });
         }
     }
 
@@ -623,14 +763,211 @@ class ChatPulse extends EventEmitter {
      * Authenticate with QR code
      */
     async _authenticateWithQR() {
-        this.logger.info('Starting QR code authentication...');
+        try {
+            this.logger.info('Starting QR code authentication...');
+            
+            // Ensure page is ready
+            if (!this.isPageReady) {
+                await this._waitForPageReady();
+            }
+            
+            // Check if already authenticated
+            const isAuthenticated = await this._checkAuthenticationStatus();
+            if (isAuthenticated) {
+                this.logger.info('Already authenticated');
+                this._setState('authenticated', true);
+                this.emit(EventTypes.AUTHENTICATED);
+                return;
+            }
+            
+            // Wait for QR code to appear
+            await this._waitForQRCode();
+            
+            // Start QR monitoring
+            await this._monitorQRCode();
+            
+            // Wait for authentication
+            await this._waitForAuthentication();
+            
+            this._setState('authenticated', true);
+            this.emit(EventTypes.AUTHENTICATED);
+            this.logger.info('QR authentication successful');
+            
+        } catch (error) {
+            throw new AuthenticationError(`QR authentication failed: ${error.message}`, 'QR_AUTH_FAILED', { error });
+        }
+    }
+
+    /**
+     * Wait for QR code to appear
+     */
+    async _waitForQRCode() {
+        try {
+            this.logger.info('Waiting for QR code...');
+            
+            await this.page.waitForSelector('[data-testid="qr-code"]', { 
+                timeout: 30000,
+                visible: true 
+            });
+            
+            this.logger.info('QR code detected');
+            
+        } catch (error) {
+            throw new AuthenticationError('QR code not found', 'QR_NOT_FOUND', { error });
+        }
+    }
+
+    /**
+     * Monitor QR code changes
+     */
+    async _monitorQRCode() {
+        try {
+            let lastQRData = null;
+            
+            const checkQR = async () => {
+                try {
+                    const qrElement = await this.page.$('[data-testid="qr-code"]');
+                    if (!qrElement) {
+                        return null;
+                    }
+                    
+                    const qrData = await qrElement.getAttribute('data-ref');
+                    if (!qrData) {
+                        // Try to get QR data from canvas or image
+                        const qrCanvas = await this.page.$('[data-testid="qr-code"] canvas');
+                        if (qrCanvas) {
+                            const qrDataUrl = await this.page.evaluate((canvas) => {
+                                return canvas.toDataURL();
+                            }, qrCanvas);
+                            return qrDataUrl;
+                        }
+                    }
+                    
+                    return qrData;
+                } catch (error) {
+                    this.logger.warn('Error checking QR code:', error);
+                    return null;
+                }
+            };
+            
+            // Initial QR code display
+            const initialQR = await checkQR();
+            if (initialQR) {
+                await this._displayQRCode(initialQR);
+                lastQRData = initialQR;
+            }
+            
+            // Monitor for QR code changes
+            const qrMonitor = setInterval(async () => {
+                const currentQR = await checkQR();
+                if (currentQR && currentQR !== lastQRData) {
+                    await this._displayQRCode(currentQR);
+                    lastQRData = currentQR;
+                }
+            }, 5000);
+            
+            // Store interval for cleanup
+            this.qrMonitorInterval = qrMonitor;
+            
+        } catch (error) {
+            this.logger.error('Error monitoring QR code:', error);
+        }
+    }
+
+    /**
+     * Display QR code
+     */
+    async _displayQRCode(qrData) {
+        try {
+            // Display in terminal
+            if (qrData.startsWith('data:image')) {
+                // Handle data URL
+                this.logger.info('QR Code updated (data URL format)');
+                console.log('\n📱 Scan the QR code above with your WhatsApp mobile app\n');
+            } else {
+                // Display QR in terminal
+                qrTerminal.generate(qrData, { small: true });
+                console.log('\n📱 Scan the QR code above with your WhatsApp mobile app\n');
+            }
+            
+            // Save QR code as image
+            await this.qrHandler.generateQRCode(qrData, {
+                terminal: false,
+                png: true,
+                dataURL: true
+            });
+            
+        } catch (error) {
+            this.logger.error('Error displaying QR code:', error);
+        }
+    }
+
+    /**
+     * Wait for authentication completion
+     */
+    async _waitForAuthentication() {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                if (this.qrMonitorInterval) {
+                    clearInterval(this.qrMonitorInterval);
+                }
+                reject(new AuthenticationError('Authentication timeout', 'AUTH_TIMEOUT'));
+            }, this.options.authTimeout || 120000);
+            
+            // Check authentication status periodically
+            const authCheck = setInterval(async () => {
+                try {
+                    const isAuthenticated = await this._checkAuthenticationStatus();
+                    if (isAuthenticated) {
+                        clearTimeout(timeout);
+                        clearInterval(authCheck);
+                        if (this.qrMonitorInterval) {
+                            clearInterval(this.qrMonitorInterval);
+                        }
+                        resolve(true);
+                    }
+                } catch (error) {
+                    this.logger.warn('Error checking authentication:', error);
+                }
+            }, 2000);
+        });
+    }
+
+    /**
+     * Check authentication status
+     */
+    async _checkAuthenticationStatus() {
+        try {
+            if (!this.page) return false;
+            
+            // Check for main WhatsApp interface elements
+            const isAuthenticated = await this.page.evaluate(() => {
+                // Check for chat list or main interface
+                return !!(
+                    document.querySelector('[data-testid="chat-list"]') ||
+                    document.querySelector('div[data-testid="conversation-panel-wrapper"]') ||
+                    document.querySelector('div[role="main"]') ||
+                    (document.querySelector('div[data-testid="intro-md-beta-logo-dark"], div[data-testid="intro-md-beta-logo-light"]') && 
+                     !document.querySelector('[data-testid="qr-code"]'))
+                );
+            });
+            
+            return isAuthenticated;
+            
+        } catch (error) {
+            this.logger.warn('Error checking authentication status:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Enhanced authenticate with QR code using real WhatsApp Web
+     */
+    async _authenticateWithQRReal() {
         
-        // Use QRHandler to handle QR generation and authentication
-        await this.qrHandler.handleQRCode();
+        // Use enhanced QR authentication
+        await this._authenticateWithQR();
         
-        this._setState('authenticated', true);
-        this.emit(EventTypes.AUTHENTICATED);
-        this.logger.info('QR authentication successful');
     }
 
     /**
@@ -673,18 +1010,29 @@ class ChatPulse extends EventEmitter {
         try {
             this.logger.info('Restoring session...');
             
-            const sessionData = await this.sessionManager.loadSessionData('auth');
-            if (!sessionData) {
-                throw new Error('No session data found');
+            // Check if browser session exists
+            if (this.options.userDataDir) {
+                const sessionPath = path.join(this.options.userDataDir, this.options.sessionName);
+                if (await fs.pathExists(sessionPath)) {
+                    // Initialize browser with existing session
+                    await this._initializeBrowser();
+                    await this._navigateToWhatsApp();
+                    await this._waitForPageReady();
+                    
+                    // Check if still authenticated
+                    const isAuthenticated = await this._checkAuthenticationStatus();
+                    if (isAuthenticated) {
+                        this._setState('authenticated', true);
+                        this._setState('connection', ConnectionStates.READY);
+                        this.emit(EventTypes.READY);
+                        this.logger.info('Session restored successfully');
+                        return;
+                    }
+                }
             }
             
-            // Restore authentication state
-            this._setState('authenticated', true);
-            
-            // Connect to WhatsApp
-            await this.connect();
-            
-            this.logger.info('Session restored successfully');
+            // If session restore fails, start new authentication
+            throw new Error('Session restore failed');
             
         } catch (error) {
             this.logger.warn('Failed to restore session:', error);
@@ -693,90 +1041,44 @@ class ChatPulse extends EventEmitter {
     }
 
     /**
-     * Setup WebSocket event handlers
+     * Setup message monitoring
      */
-    _setupWebSocketHandlers() {
-        if (!this.ws) return;
-        
-        // Remove existing listeners to prevent duplicates
-        this.ws.removeAllListeners();
-        
-        this.ws.on('open', () => {
-            this.logger.debug('WebSocket connection opened');
-            this._startHeartbeat();
-        });
-        
-        this.ws.on('message', async (data) => {
-            try {
-                if (!data) {
-                    this.logger.warn('Received empty message data');
-                    return;
-                }
-                await this._handleWebSocketMessage(data);
-            } catch (error) {
-                this.logger.error('Error handling WebSocket message:', error);
-                await this.errorHandler.handleError(error, { context: 'websocket_message', dataType: typeof data });
-            }
-        });
-        
-        this.ws.on('close', (code, reason) => {
-            this.logger.warn(`WebSocket connection closed: ${code} ${reason?.toString() || 'No reason'}`);
-            this._handleDisconnection();
-        });
-        
-        this.ws.on('error', (error) => {
-            this.logger.error('WebSocket error:', error);
-            this.errorHandler.handleError(error, { context: 'websocket_error' }).catch(handlerError => {
-                this.logger.error('Error in error handler:', handlerError);
-            });
-        });
-        
-        this.ws.on('ping', (data) => {
-            this.logger.debug('Received ping');
-            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                this.ws.pong(data);
-            }
-        });
-        
-        this.ws.on('pong', () => {
-            this.logger.debug('Received pong');
-            this.state.lastHeartbeat = Date.now();
-        });
-    }
-
-    /**
-     * Handle WebSocket message
-     */
-    async _handleWebSocketMessage(data) {
+    async _setupMessageMonitoring() {
         try {
-            // Validate data
-            if (!data) {
-                this.logger.warn('Received null or undefined message data');
+            if (!this.page) {
                 return;
             }
             
-            // Decrypt if using E2E encryption
-            let decryptedData = data;
-            if (this.signalStore && this.options.enableE2E) {
-                try {
-                    decryptedData = await this._decryptMessage(data);
-                } catch (decryptError) {
-                    this.logger.error('Failed to decrypt message:', decryptError);
-                    // Continue with original data if decryption fails
-                    decryptedData = data;
+            // Inject message monitoring script
+            await this.page.evaluateOnNewDocument(() => {
+                // Monitor for new messages
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'childList') {
+                            mutation.addedNodes.forEach((node) => {
+                                if (node.nodeType === Node.ELEMENT_NODE) {
+                                    // Check for message elements
+                                    const messageElements = node.querySelectorAll('[data-testid="msg-container"]');
+                                    messageElements.forEach((msgElement) => {
+                                        // Extract message data and emit to Node.js
+                                        window.chatPulseMessageReceived && window.chatPulseMessageReceived(msgElement);
+                                    });
+                                }
+                            });
+                        }
+                    });
+                });
+                
+                // Start observing when DOM is ready
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        observer.observe(document.body, { childList: true, subtree: true });
+                    });
+                } else {
+                    observer.observe(document.body, { childList: true, subtree: true });
                 }
-            }
+            });
             
-            // Parse protobuf message
-            let message;
-            try {
-                message = await this.protocolHandler.parseMessage(decryptedData);
-            } catch (parseError) {
-                this.logger.error('Failed to parse message:', parseError);
-                // Create fallback message
-                message = {
-                    type: 'unknown',
-                    data: decryptedData,
                     timestamp: Date.now(),
                     parseError: parseError.message
                 };
