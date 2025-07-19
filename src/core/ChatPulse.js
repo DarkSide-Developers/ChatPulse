@@ -137,20 +137,30 @@ class ChatPulse extends EventEmitter {
     async connect() {
         try {
             if (this.state.connection !== ConnectionStates.DISCONNECTED) {
-                throw new ConnectionError('Already connected or connecting');
+                this.logger.warn('Already connected or connecting, current state:', this.state.connection);
+                return;
             }
             
             this._setState('connection', ConnectionStates.CONNECTING);
             this.logger.info('Connecting to WhatsApp Web...');
             
+            // Validate WebSocket endpoint
+            if (!this.options.wsEndpoint) {
+                throw new ConnectionError('WebSocket endpoint not configured');
+            }
+            
             // Create WebSocket connection
-            this.ws = new WebSocket(this.options.wsEndpoint, {
-                headers: {
-                    'User-Agent': this.options.userAgent,
-                    'Origin': this.options.baseUrl
-                },
-                timeout: this.options.connectionTimeout
-            });
+            try {
+                this.ws = new WebSocket(this.options.wsEndpoint, {
+                    headers: {
+                        'User-Agent': this.options.userAgent,
+                        'Origin': this.options.baseUrl
+                    },
+                    timeout: this.options.connectionTimeout
+                });
+            } catch (wsError) {
+                throw new ConnectionError(`Failed to create WebSocket: ${wsError.message}`, null, { wsError });
+            }
             
             // Setup WebSocket event handlers
             this._setupWebSocketHandlers();
@@ -164,6 +174,18 @@ class ChatPulse extends EventEmitter {
             
         } catch (error) {
             this._setState('connection', ConnectionStates.FAILED);
+            this.logger.error('Connection failed:', error);
+            
+            // Cleanup on failure
+            if (this.ws) {
+                try {
+                    this.ws.close();
+                } catch (closeError) {
+                    this.logger.warn('Error closing WebSocket after connection failure:', closeError);
+                }
+                this.ws = null;
+            }
+            
             throw new ConnectionError(`Failed to connect: ${error.message}`, null, { error });
         }
     }
@@ -676,6 +698,9 @@ class ChatPulse extends EventEmitter {
     _setupWebSocketHandlers() {
         if (!this.ws) return;
         
+        // Remove existing listeners to prevent duplicates
+        this.ws.removeAllListeners();
+        
         this.ws.on('open', () => {
             this.logger.debug('WebSocket connection opened');
             this._startHeartbeat();
@@ -683,20 +708,39 @@ class ChatPulse extends EventEmitter {
         
         this.ws.on('message', async (data) => {
             try {
+                if (!data) {
+                    this.logger.warn('Received empty message data');
+                    return;
+                }
                 await this._handleWebSocketMessage(data);
             } catch (error) {
                 this.logger.error('Error handling WebSocket message:', error);
+                await this.errorHandler.handleError(error, { context: 'websocket_message', dataType: typeof data });
             }
         });
         
         this.ws.on('close', (code, reason) => {
-            this.logger.warn(`WebSocket connection closed: ${code} ${reason}`);
+            this.logger.warn(`WebSocket connection closed: ${code} ${reason?.toString() || 'No reason'}`);
             this._handleDisconnection();
         });
         
         this.ws.on('error', (error) => {
             this.logger.error('WebSocket error:', error);
-            this.errorHandler.handleError(error, { context: 'websocket' });
+            this.errorHandler.handleError(error, { context: 'websocket_error' }).catch(handlerError => {
+                this.logger.error('Error in error handler:', handlerError);
+            });
+        });
+        
+        this.ws.on('ping', (data) => {
+            this.logger.debug('Received ping');
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.pong(data);
+            }
+        });
+        
+        this.ws.on('pong', () => {
+            this.logger.debug('Received pong');
+            this.state.lastHeartbeat = Date.now();
         });
     }
 
@@ -705,27 +749,93 @@ class ChatPulse extends EventEmitter {
      */
     async _handleWebSocketMessage(data) {
         try {
+            // Validate data
+            if (!data) {
+                this.logger.warn('Received null or undefined message data');
+                return;
+            }
+            
             // Decrypt if using E2E encryption
             let decryptedData = data;
             if (this.signalStore && this.options.enableE2E) {
-                // Implement E2E decryption here
-                decryptedData = await this._decryptMessage(data);
+                try {
+                    decryptedData = await this._decryptMessage(data);
+                } catch (decryptError) {
+                    this.logger.error('Failed to decrypt message:', decryptError);
+                    // Continue with original data if decryption fails
+                    decryptedData = data;
+                }
             }
             
             // Parse protobuf message
-            const message = await this.protocolHandler.parseMessage(decryptedData);
+            let message;
+            try {
+                message = await this.protocolHandler.parseMessage(decryptedData);
+            } catch (parseError) {
+                this.logger.error('Failed to parse message:', parseError);
+                // Create fallback message
+                message = {
+                    type: 'unknown',
+                    data: decryptedData,
+                    timestamp: Date.now(),
+                    parseError: parseError.message
+                };
+            }
+            
+            if (!message) {
+                this.logger.warn('Parsed message is null or undefined');
+                return;
+            }
             
             // Handle different message types
-            if (message.type === 'message') {
-                this.messageHandler.handleIncomingMessage(message);
-            } else if (message.type === 'presence') {
-                this.emit(EventTypes.PRESENCE_UPDATE, message);
-            } else if (message.type === 'call') {
-                this.emit(EventTypes.CALL, message);
+            try {
+                switch (message.type) {
+                    case 'message':
+                    case 'text':
+                    case 'image':
+                    case 'video':
+                    case 'audio':
+                    case 'document':
+                    case 'sticker':
+                    case 'location':
+                    case 'contact':
+                    case 'buttons_response':
+                    case 'list_response':
+                    case 'poll_update':
+                        this.messageHandler.handleIncomingMessage(message);
+                        break;
+                    case 'presence':
+                        this.emit(EventTypes.PRESENCE_UPDATE, message);
+                        break;
+                    case 'call':
+                        this.emit(EventTypes.CALL, message);
+                        break;
+                    case 'ack':
+                        this.emit(EventTypes.MESSAGE_ACK, message);
+                        break;
+                    case 'receipt':
+                        this.emit('message_receipt', message);
+                        break;
+                    default:
+                        this.logger.debug(`Unhandled message type: ${message.type}`);
+                        this.emit('unknown_message', message);
+                }
+            } catch (handlerError) {
+                this.logger.error(`Error handling message type ${message.type}:`, handlerError);
+                await this.errorHandler.handleError(handlerError, { 
+                    context: 'message_handler', 
+                    messageType: message.type,
+                    messageId: message.id 
+                });
             }
             
         } catch (error) {
             this.logger.error('Failed to handle WebSocket message:', error);
+            await this.errorHandler.handleError(error, { 
+                context: 'websocket_message_handler',
+                dataLength: data?.length || 0,
+                dataType: typeof data
+            });
         }
     }
 
@@ -757,28 +867,70 @@ class ChatPulse extends EventEmitter {
         }
         
         this.heartbeatInterval = setInterval(() => {
-            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                this.ws.ping();
-                this.state.lastHeartbeat = Date.now();
+            try {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.ping();
+                    this.logger.debug('Heartbeat ping sent');
+                } else {
+                    this.logger.warn('Cannot send heartbeat - WebSocket not open');
+                    this._handleDisconnection();
+                }
+            } catch (error) {
+                this.logger.error('Error sending heartbeat:', error);
+                this._handleDisconnection();
             }
         }, this.options.heartbeatInterval || 30000);
+        
+        // Check for missed heartbeats
+        setInterval(() => {
+            const now = Date.now();
+            const lastHeartbeat = this.state.lastHeartbeat || now;
+            const timeSinceLastHeartbeat = now - lastHeartbeat;
+            
+            if (timeSinceLastHeartbeat > (this.options.heartbeatInterval || 30000) * 3) {
+                this.logger.warn('Heartbeat timeout detected, triggering reconnection');
+                this._handleDisconnection();
+            }
+        }, (this.options.heartbeatInterval || 30000) * 2);
     }
 
     /**
      * Handle disconnection
      */
     _handleDisconnection() {
+        if (this.state.connection === ConnectionStates.DISCONNECTED) {
+            return; // Already handling disconnection
+        }
+        
         this._setState('connection', ConnectionStates.DISCONNECTED);
         this.emit(EventTypes.DISCONNECTED);
         
+        // Clear heartbeat
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
         }
         
+        // Close WebSocket if still open
+        if (this.ws) {
+            try {
+                if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+                    this.ws.close();
+                }
+            } catch (error) {
+                this.logger.warn('Error closing WebSocket during disconnection:', error);
+            }
+            this.ws = null;
+        }
+        
         // Auto-reconnect if enabled
-        if (this.options.autoReconnect && this.state.reconnectAttempts < this.options.maxReconnectAttempts) {
+        if (this.options.autoReconnect && 
+            this.state.reconnectAttempts < (this.options.maxReconnectAttempts || 10) &&
+            this.state.authenticated) {
             this._scheduleReconnect();
+        } else if (this.state.reconnectAttempts >= (this.options.maxReconnectAttempts || 10)) {
+            this.logger.error('Maximum reconnection attempts reached');
+            this.emit('max_reconnect_attempts_reached');
         }
     }
 
@@ -790,7 +942,9 @@ class ChatPulse extends EventEmitter {
             clearTimeout(this.reconnectTimeout);
         }
         
-        const delay = this.options.reconnectInterval * Math.pow(2, this.state.reconnectAttempts);
+        const baseDelay = this.options.reconnectInterval || 5000;
+        const maxDelay = 60000; // Maximum 1 minute delay
+        const delay = Math.min(baseDelay * Math.pow(2, this.state.reconnectAttempts), maxDelay);
         
         this.reconnectTimeout = setTimeout(async () => {
             try {
@@ -798,16 +952,25 @@ class ChatPulse extends EventEmitter {
                 this._setState('connection', ConnectionStates.RECONNECTING);
                 this.emit(EventTypes.RECONNECTING);
                 
+                this.logger.info(`Attempting reconnection (${this.state.reconnectAttempts}/${this.options.maxReconnectAttempts || 10})`);
                 await this.connect();
                 this.state.reconnectAttempts = 0;
+                this.logger.info('Reconnection successful');
                 
             } catch (error) {
                 this.logger.error('Reconnection failed:', error);
-                this._handleDisconnection();
+                
+                // Only schedule another reconnect if we haven't exceeded max attempts
+                if (this.state.reconnectAttempts < (this.options.maxReconnectAttempts || 10)) {
+                    this._scheduleReconnect();
+                } else {
+                    this._setState('connection', ConnectionStates.FAILED);
+                    this.emit('reconnection_failed');
+                }
             }
         }, delay);
         
-        this.logger.info(`Reconnecting in ${delay}ms (attempt ${this.state.reconnectAttempts + 1})`);
+        this.logger.info(`Reconnecting in ${delay}ms (attempt ${this.state.reconnectAttempts + 1}/${this.options.maxReconnectAttempts || 10})`);
     }
 
     /**
@@ -820,18 +983,30 @@ class ChatPulse extends EventEmitter {
                 return;
             }
             
+            // Check if already open
+            if (this.ws.readyState === WebSocket.OPEN) {
+                resolve();
+                return;
+            }
+            
             const timeout = setTimeout(() => {
-                reject(new Error('Connection timeout'));
+                reject(new ConnectionError('Connection timeout', 'TIMEOUT'));
             }, this.options.connectionTimeout || 30000);
             
             this.ws.once('open', () => {
                 clearTimeout(timeout);
+                this.state.lastHeartbeat = Date.now();
                 resolve();
             });
             
             this.ws.once('error', (error) => {
                 clearTimeout(timeout);
-                reject(error);
+                reject(new ConnectionError(`WebSocket error: ${error.message}`, 'WS_ERROR', { error }));
+            });
+            
+            this.ws.once('close', (code, reason) => {
+                clearTimeout(timeout);
+                reject(new ConnectionError(`WebSocket closed during connection: ${code} ${reason?.toString() || ''}`, 'WS_CLOSED'));
             });
         });
     }

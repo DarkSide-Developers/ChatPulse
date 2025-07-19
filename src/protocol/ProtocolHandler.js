@@ -25,15 +25,41 @@ class ProtocolHandler {
      */
     async parseMessage(data) {
         try {
+            // Validate input data
+            if (!data) {
+                throw new MessageError('No data provided for parsing', 'INVALID_INPUT');
+            }
+            
             // Handle different data types
             let messageData;
             
             if (Buffer.isBuffer(data)) {
-                messageData = this._parseProtobufMessage(data);
+                try {
+                    messageData = this._parseProtobufMessage(data);
+                } catch (protobufError) {
+                    this.logger.warn('Protobuf parsing failed, trying fallback:', protobufError);
+                    messageData = this._parseRawMessage(data);
+                }
             } else if (typeof data === 'string') {
-                messageData = JSON.parse(data);
+                try {
+                    messageData = JSON.parse(data);
+                } catch (jsonError) {
+                    this.logger.warn('JSON parsing failed, treating as text message:', jsonError);
+                    messageData = {
+                        type: 'text',
+                        body: data,
+                        timestamp: Date.now(),
+                        from: 'unknown@c.us',
+                        isFromMe: false
+                    };
+                }
             } else {
                 messageData = data;
+            }
+            
+            // Validate parsed data
+            if (!messageData || typeof messageData !== 'object') {
+                throw new MessageError('Parsed message data is invalid', 'INVALID_PARSED_DATA');
             }
 
             // Enhance message with additional properties
@@ -43,6 +69,7 @@ class ProtocolHandler {
             return enhancedMessage;
 
         } catch (error) {
+            this.logger.error('Message parsing failed:', error);
             throw new MessageError(`Failed to parse message: ${error.message}`, 'PARSE_FAILED', { error });
         }
     }
@@ -106,6 +133,10 @@ class ProtocolHandler {
      */
     _parseRawMessage(buffer) {
         try {
+            if (!Buffer.isBuffer(buffer)) {
+                throw new Error('Input is not a Buffer');
+            }
+            
             // Simple fallback parsing
             const text = buffer.toString('utf8');
             
@@ -119,7 +150,8 @@ class ProtocolHandler {
                     body: text,
                     timestamp: Date.now(),
                     from: 'unknown@c.us',
-                    isFromMe: false
+                    isFromMe: false,
+                    id: `fallback_${Date.now()}`
                 };
             }
 
@@ -127,8 +159,10 @@ class ProtocolHandler {
             this.logger.error('Raw message parsing failed:', error);
             return {
                 type: 'unknown',
-                data: buffer,
-                timestamp: Date.now()
+                data: buffer?.toString('hex') || 'invalid_data',
+                timestamp: Date.now(),
+                id: `error_${Date.now()}`,
+                parseError: error.message
             };
         }
     }
@@ -137,11 +171,28 @@ class ProtocolHandler {
      * Enhance message with additional properties
      */
     _enhanceMessage(messageData) {
+        if (!messageData || typeof messageData !== 'object') {
+            return {
+                id: `invalid_${Date.now()}`,
+                timestamp: Date.now(),
+                type: 'unknown',
+                body: '',
+                from: 'unknown@c.us',
+                isFromMe: false,
+                hasMedia: false,
+                mentionedJidList: [],
+                quotedMsg: null,
+                error: 'Invalid message data'
+            };
+        }
+        
         const enhanced = {
             ...messageData,
             id: messageData.id || `msg_${Date.now()}`,
             timestamp: messageData.timestamp || Date.now(),
             type: messageData.type || 'text',
+            body: messageData.body || messageData.conversation || messageData.text || '',
+            from: messageData.from || messageData.remoteJid || 'unknown@c.us',
             hasMedia: this._hasMedia(messageData),
             isFromMe: messageData.isFromMe || false,
             mentionedJidList: messageData.mentionedJidList || [],
@@ -158,6 +209,18 @@ class ProtocolHandler {
             enhanced.isList = true;
             enhanced.selectedRowId = messageData.selectedRowId;
         }
+        
+        // Add poll response properties
+        if (messageData.pollUpdateMessage) {
+            enhanced.isPoll = true;
+            enhanced.pollUpdate = messageData.pollUpdateMessage;
+        }
+        
+        // Add media properties
+        if (enhanced.hasMedia) {
+            enhanced.mediaType = this._getMediaType(messageData);
+            enhanced.mediaData = this._extractMediaData(messageData);
+        }
 
         return enhanced;
     }
@@ -166,8 +229,73 @@ class ProtocolHandler {
      * Check if message has media
      */
     _hasMedia(messageData) {
+        if (!messageData || typeof messageData !== 'object') {
+            return false;
+        }
+        
         const mediaTypes = ['image', 'video', 'audio', 'document', 'sticker'];
-        return mediaTypes.some(type => messageData[`${type}Message`] || messageData.type === type);
+        
+        // Check message type
+        if (mediaTypes.includes(messageData.type)) {
+            return true;
+        }
+        
+        // Check for media message objects
+        return mediaTypes.some(type => {
+            const mediaKey = `${type}Message`;
+            return messageData[mediaKey] && typeof messageData[mediaKey] === 'object';
+        });
+    }
+    
+    /**
+     * Get media type from message
+     */
+    _getMediaType(messageData) {
+        if (!messageData) return null;
+        
+        const mediaTypes = ['image', 'video', 'audio', 'document', 'sticker'];
+        
+        // Check message type first
+        if (mediaTypes.includes(messageData.type)) {
+            return messageData.type;
+        }
+        
+        // Check for media message objects
+        for (const type of mediaTypes) {
+            const mediaKey = `${type}Message`;
+            if (messageData[mediaKey]) {
+                return type;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Extract media data from message
+     */
+    _extractMediaData(messageData) {
+        if (!messageData) return null;
+        
+        const mediaType = this._getMediaType(messageData);
+        if (!mediaType) return null;
+        
+        const mediaKey = `${mediaType}Message`;
+        const mediaMessage = messageData[mediaKey];
+        
+        if (!mediaMessage) return null;
+        
+        return {
+            url: mediaMessage.url,
+            mimetype: mediaMessage.mimetype,
+            caption: mediaMessage.caption,
+            filename: mediaMessage.filename || mediaMessage.title,
+            fileLength: mediaMessage.fileLength,
+            width: mediaMessage.width,
+            height: mediaMessage.height,
+            duration: mediaMessage.seconds,
+            thumbnail: mediaMessage.jpegThumbnail || mediaMessage.pngThumbnail
+        };
     }
 
     /**
