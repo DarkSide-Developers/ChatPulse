@@ -5,8 +5,9 @@
   "main": "lib/index.js",
   "scripts": {
     "postinstall": "npx puppeteer browsers install chrome",
-    "dev": "node examples/basic-bot.js",
-    "start": "node examples/basic-bot.js"
+    "dev": "node examples/advanced-bot.js",
+    "start": "node examples/advanced-bot.js",
+    "basic": "node examples/basic-bot.js"
   },
   "keywords": [
     "whatsapp",
