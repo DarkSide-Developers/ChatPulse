@@ -4,10 +4,10 @@
   "description": "Advanced WhatsApp Web API Library - A powerful, modular, and production-ready WhatsApp automation library",
   "main": "src/index.js",
   "scripts": {
-    "dev": "node examples/advanced-bot.js",
-    "start": "node examples/advanced-bot.js",
-    "basic": "node examples/basic-bot.js",
-    "test": "echo 'Tests not implemented yet'",
+    "dev": "node src/index.js",
+    "start": "node src/index.js",
+    "basic": "node src/index.js",
+    "test": "node examples/advanced-bot.js",
     "lint": "echo 'Linting not implemented yet'"
   },
   "keywords": [
