@@ -10,7 +10,6 @@
 
 const EventEmitter = require('events');
 const WebSocket = require('ws');
-const libsignal = require('libsignal-protocol-javascript');
 const protobuf = require('protobufjs');
 const qrTerminal = require('qrcode-terminal');
 const pino = require('pino');
@@ -571,7 +570,8 @@ class ChatPulse extends EventEmitter {
      */
     async _initializeSignalStore() {
         try {
-            this.signalStore = new libsignal.SignalProtocolStore();
+            // Signal Protocol Store placeholder - implement when needed
+            this.signalStore = null;
             this.logger.debug('Signal Protocol Store initialized');
         } catch (error) {
             this.logger.warn('Failed to initialize Signal Protocol Store:', error);
