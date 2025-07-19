@@ -10,7 +10,7 @@
 
 const EventEmitter = require('events');
 const WebSocket = require('ws');
-const { SignalProtocolStore, SessionBuilder, MessageCipher } = require('@whiskeysockets/libsignal');
+const libsignal = require('libsignal-protocol-javascript');
 const protobuf = require('protobufjs');
 const qrTerminal = require('qrcode-terminal');
 const pino = require('pino');
@@ -571,7 +571,7 @@ class ChatPulse extends EventEmitter {
      */
     async _initializeSignalStore() {
         try {
-            this.signalStore = new SignalProtocolStore();
+            this.signalStore = new libsignal.SignalProtocolStore();
             this.logger.debug('Signal Protocol Store initialized');
         } catch (error) {
             this.logger.warn('Failed to initialize Signal Protocol Store:', error);
