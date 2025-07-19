@@ -1,465 +1,183 @@
-{
-  "name": "chatpulse",
-  "version": "1.0.0",
-  "description": "ChatPulse - Advanced WhatsApp Web API Library",
-  "main": "src/index.js",
-  "scripts": {
-    "start": "node src/index.js",
-    "basic": "node examples/basic-example.js",
-    "advanced": "node examples/advanced-example.js",
-    "test": "node examples/test-connection.js",
-    "dev": "node examples/advanced-example.js",
-    "pairing": "node examples/pairing-example.js",
-    "build": "npm run lint && npm run test:unit",
-    "lint": "eslint src/ examples/ --ext .js",
-    "lint:fix": "eslint src/ examples/ --ext .js --fix",
-    "test:unit": "jest --coverage",
-    "test:integration": "jest --testPathPattern=integration",
-    "test:e2e": "jest --testPathPattern=e2e",
-    "docs": "jsdoc -c jsdoc.conf.json",
-    "clean": "rimraf node_modules package-lock.json",
-    "reinstall": "npm run clean && npm install",
-    "security": "npm audit && npm audit fix",
-    "update": "npm update && npm audit fix"
-  },
-  "keywords": [
-    "whatsapp",
-    "whatsapp-web",
-    "whatsapp-api",
-    "whatsapp-bot",
-    "whatsapp-automation",
-    "chatbot",
-    "bot-framework",
-    "messaging",
-    "automation",
-    "qr-code",
-    "pairing-code",
-    "multi-device",
-    "end-to-end-encryption",
-    "media-sharing",
-    "group-management",
-    "business-api",
-    "webhook",
-    "real-time",
-    "cross-platform",
-    "typescript-support"
-  ],
-  "author": "DarkWinzo <isurulakshan9998@gmail.com>",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/DarkSide-Developers/ChatPulse.git"
-  },
-  "homepage": "https://github.com/DarkSide-Developers/ChatPulse",
-  "bugs": {
-    "url": "https://github.com/DarkSide-Developers/ChatPulse/issues"
-  },
-  "dependencies": {
-    "events": "^3.3.0",
-    "ws": "^8.14.2",
-    "node-fetch": "^2.7.0",
-    "protobufjs": "^7.2.5",
-    "qrcode-terminal": "^0.12.0",
-    "qrcode": "^1.5.3",
-    "pino": "^8.16.1",
-    "pino-pretty": "^10.2.3",
-    "fs-extra": "^11.1.1",
-    "mime-types": "^2.1.35",
-    "crypto-js": "^4.2.0",
-    "axios": "^1.6.2",
-    "libphonenumber-js": "^1.10.51",
-    "qr-image": "^3.2.0",
-    "node-cache": "^5.1.2",
-    "puppeteer": "^21.6.1",
-    "dotenv": "^16.3.1",
-    "uuid": "^9.0.1",
-    "sharp": "^0.33.0",
-    "jsqr": "^1.4.0"
-  },
-  "devDependencies": {
-    "pino-pretty": "^10.2.3",
-    "nodemon": "^3.0.1",
-    "eslint": "^8.55.0",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-import": "^2.29.0",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^6.1.1",
-    "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "jsdoc": "^4.0.2",
-    "rimraf": "^5.0.5",
-    "@types/node": "^20.10.4",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.1",
-    "@typescript-eslint/eslint-plugin": "^6.13.2",
-    "@typescript-eslint/parser": "^6.13.2"
-  },
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
-  },
-  "os": [
-    "linux",
-    "darwin",
-    "win32"
-  ],
-  "cpu": [
-    "x64",
-    "arm64"
-  ],
-  "preferGlobal": false,
-  "private": false,
-  "config": {
-    "port": 3000,
-    "logLevel": "info",
-    "sessionTimeout": 300000,
-    "maxConnections": 100,
-    "rateLimitWindow": 60000,
-    "rateLimitMax": 100
-  },
-  "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/DarkWinzo"
-  },
-  "contributors": [
-    {
-      "name": "DarkWinzo",
-      "email": "isurulakshan9998@gmail.com",
-      "url": "https://github.com/DarkWinzo"
+/**
+ * ChatPulse - Advanced QR Handler
+ * Developer: DarkWinzo (https://github.com/DarkWinzo)
+ * Email: isurulakshan9998@gmail.com
+ * Organization: DarkSide Developer Team
+ * GitHub: https://github.com/DarkSide-Developers
+ * Repository: https://github.com/DarkSide-Developers/ChatPulse
+ * © 2025 DarkSide Developer Team. All rights reserved.
+ */
+
+const fs = require('fs-extra');
+const path = require('path');
+const QRCode = require('qrcode');
+const qrTerminal = require('qrcode-terminal');
+const sharp = require('sharp');
+const jsQR = require('jsqr');
+const { Logger } = require('../utils/Logger');
+const { AuthenticationError } = require('../errors/ChatPulseError');
+
+/**
+ * Advanced QR code handler with multiple format support
+ */
+class QRHandler {
+    constructor(client) {
+        this.client = client;
+        this.logger = new Logger('QRHandler');
+        this.qrDir = path.join(process.cwd(), 'qr-codes');
+        this.currentQR = null;
+        this.qrHistory = [];
+        this.maxHistorySize = 10;
+        
+        this._ensureQRDirectory();
     }
-  ],
-  "maintainers": [
-    {
-      "name": "DarkWinzo",
-      "email": "isurulakshan9998@gmail.com",
-      "url": "https://github.com/DarkWinzo"
+
+    /**
+     * Generate and display QR code with multiple format support
+     */
+    async generateQRCode(qrData, options = {}) {
+        try {
+            this.logger.info('📱 Generating QR code...');
+            
+            const qrOptions = {
+                terminal: options.terminal !== false,
+                save: options.save !== false,
+                format: options.format || 'png',
+                size: options.size || 'medium',
+                errorCorrectionLevel: options.errorCorrectionLevel || 'M',
+                margin: options.margin || 4,
+                color: {
+                    dark: options.darkColor || '#000000',
+                    light: options.lightColor || '#FFFFFF'
+                },
+                ...options
+            };
+            
+            // Store current QR data
+            this.currentQR = {
+                data: qrData,
+                timestamp: Date.now(),
+                options: qrOptions
+            };
+            
+            // Add to history
+            this._addToHistory(this.currentQR);
+            
+            // Display in terminal if requested
+            if (qrOptions.terminal) {
+                await this._displayInTerminal(qrData, qrOptions);
+            }
+            
+            // Save as image if requested
+            if (qrOptions.save) {
+                await this._saveAsImage(qrData, qrOptions);
+            }
+            
+            // Generate data URL if requested
+            let dataURL = null;
+            if (qrOptions.dataURL) {
+                dataURL = await this._generateDataURL(qrData, qrOptions);
+            }
+            
+            const result = {
+                data: qrData,
+                timestamp: Date.now(),
+                format: qrOptions.format,
+                size: qrOptions.size,
+                saved: qrOptions.save,
+                dataURL: dataURL
+            };
+            
+            this.logger.info('✅ QR code generated successfully');
+            return result;
+            
+        } catch (error) {
+            this.logger.error('❌ Failed to generate QR code:', error);
+            throw new AuthenticationError(`QR generation failed: ${error.message}`, 'QR_GENERATION_FAILED', { error });
+        }
     }
-  ],
-  "files": [
-    "src/",
-    "lib/",
-    "examples/",
-    "docs/",
-    "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
-  ],
-  "directories": {
-    "lib": "./src",
-    "doc": "./docs",
-    "example": "./examples",
-    "test": "./tests"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
-  "chatpulse": {
-    "features": {
-      "qrAuthentication": true,
-      "pairingAuthentication": true,
-      "multiDevice": true,
-      "endToEndEncryption": true,
-      "mediaSupport": true,
-      "groupManagement": true,
-      "businessAPI": true,
-      "webhooks": true,
-      "realTimeMessaging": true,
-      "rateLimiting": true,
-      "sessionManagement": true,
-      "errorRecovery": true,
-      "logging": true,
-      "validation": true,
-      "messageQueue": true,
-      "fileUpload": true,
-      "voiceMessages": true,
-      "stickers": true,
-      "polls": true,
-      "buttons": true,
-      "lists": true,
-      "contacts": true,
-      "location": true,
-      "reactions": true,
-      "forwarding": true,
-      "editing": true,
-      "deletion": true,
-      "archiving": true,
-      "pinning": true,
-      "muting": true,
-      "blocking": true,
-      "presence": true,
-      "typing": true,
-      "recording": true,
-      "readReceipts": true,
-      "messageHistory": true,
-      "backup": true,
-      "restore": true,
-      "export": true,
-      "import": true,
-      "analytics": true,
-      "monitoring": true,
-      "clustering": true,
-      "loadBalancing": true,
-      "caching": true,
-      "database": true,
-      "api": true,
-      "cli": true,
-      "gui": true,
-      "mobile": true,
-      "desktop": true,
-      "web": true,
-      "cloud": true,
-      "onPremise": true,
-      "docker": true,
-      "kubernetes": true,
-      "serverless": true,
-      "microservices": true,
-      "eventDriven": true,
-      "reactive": true,
-      "async": true,
-      "streaming": true,
-      "batch": true,
-      "scheduled": true,
-      "triggered": true,
-      "conditional": true,
-      "templated": true,
-      "personalized": true,
-      "localized": true,
-      "accessible": true,
-      "secure": true,
-      "compliant": true,
-      "auditable": true,
-      "testable": true,
-      "maintainable": true,
-      "scalable": true,
-      "performant": true,
-      "reliable": true,
-      "available": true,
-      "durable": true,
-      "consistent": true,
-      "eventual": true,
-      "strong": true,
-      "weak": true,
-      "causal": true,
-      "monotonic": true,
-      "sequential": true,
-      "linearizable": true,
-      "serializable": true,
-      "snapshot": true,
-      "readCommitted": true,
-      "repeatableRead": true,
-      "phantom": true,
-      "dirty": true,
-      "lost": true,
-      "nonRepeatable": true,
-      "writeSkew": true,
-      "readSkew": true,
-      "phantomRead": true,
-      "dirtyRead": true,
-      "lostUpdate": true,
-      "nonRepeatableRead": true
-    },
-    "authentication": {
-      "methods": [
-        "qr",
-        "pairing",
-        "session",
-        "token",
-        "oauth",
-        "jwt",
-        "api-key",
-        "webhook"
-      ],
-      "security": {
-        "encryption": "AES-256",
-        "hashing": "SHA-256",
-        "signing": "HMAC-SHA256",
-        "keyExchange": "ECDH",
-        "keyDerivation": "PBKDF2",
-        "randomGeneration": "CSPRNG"
-      }
-    },
-    "messaging": {
-      "types": [
-        "text",
-        "image",
-        "video",
-        "audio",
-        "document",
-        "sticker",
-        "location",
-        "contact",
-        "poll",
-        "button",
-        "list",
-        "template",
-        "carousel",
-        "interactive"
-      ],
-      "features": [
-        "reactions",
-        "replies",
-        "forwards",
-        "edits",
-        "deletions",
-        "mentions",
-        "hashtags",
-        "links",
-        "previews",
-        "thumbnails",
-        "captions",
-        "metadata",
-        "timestamps",
-        "status",
-        "delivery",
-        "read",
-        "typing",
-        "recording",
-        "presence"
-      ]
-    },
-    "media": {
-      "formats": {
-        "image": ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff"],
-        "video": ["mp4", "avi", "mov", "mkv", "webm", "3gp", "flv"],
-        "audio": ["mp3", "wav", "ogg", "aac", "m4a", "flac", "wma"],
-        "document": ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"]
-      },
-      "limits": {
-        "maxFileSize": "64MB",
-        "maxImageSize": "16MB",
-        "maxVideoSize": "64MB",
-        "maxAudioSize": "16MB",
-        "maxDocumentSize": "100MB"
-      },
-      "processing": {
-        "compression": true,
-        "resizing": true,
-        "conversion": true,
-        "optimization": true,
-        "thumbnails": true,
-        "previews": true,
-        "metadata": true,
-        "watermarks": true,
-        "filters": true,
-        "effects": true
-      }
-    },
-    "groups": {
-      "features": [
-        "create",
-        "delete",
-        "update",
-        "join",
-        "leave",
-        "invite",
-        "remove",
-        "promote",
-        "demote",
-        "mute",
-        "unmute",
-        "archive",
-        "unarchive",
-        "pin",
-        "unpin",
-        "description",
-        "picture",
-        "settings",
-        "permissions",
-        "announcements",
-        "ephemeral",
-        "disappearing"
-      ],
-      "limits": {
-        "maxParticipants": 1024,
-        "maxAdmins": 50,
-        "maxDescriptionLength": 512,
-        "maxNameLength": 25
-      }
-    },
-    "business": {
-      "features": [
-        "catalog",
-        "products",
-        "orders",
-        "payments",
-        "shipping",
-        "invoices",
-        "receipts",
-        "labels",
-        "templates",
-        "broadcasts",
-        "campaigns",
-        "analytics",
-        "insights",
-        "reports",
-        "metrics",
-        "kpis",
-        "dashboards",
-        "alerts",
-        "notifications",
-        "webhooks"
-      ],
-      "integrations": [
-        "shopify",
-        "woocommerce",
-        "magento",
-        "prestashop",
-        "opencart",
-        "bigcommerce",
-        "squarespace",
-        "stripe",
-        "paypal",
-        "square",
-        "razorpay",
-        "payu",
-        "paytm",
-        "phonepe",
-        "googlepay",
-        "applepay",
-        "amazonpay",
-        "samsungpay",
-        "mastercard",
-        "visa",
-        "amex",
-        "discover"
-      ]
-    },
-    "api": {
-      "versions": ["v1", "v2", "v3"],
-      "protocols": ["REST", "GraphQL", "WebSocket", "gRPC"],
-      "formats": ["JSON", "XML", "YAML", "CSV", "Protobuf"],
-      "authentication": ["Bearer", "Basic", "Digest", "OAuth", "JWT", "API-Key"],
-      "rateLimit": {
-        "requests": 1000,
-        "window": "1h",
-        "burst": 100
-      },
-      "pagination": {
-        "default": 20,
-        "max": 100,
-        "methods": ["offset", "cursor", "page"]
-      },
-      "filtering": {
-        "operators": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
-        "fields": ["id", "timestamp", "type", "status", "from", "to", "body"]
-      },
-      "sorting": {
-        "fields": ["id", "timestamp", "type", "status"],
-        "orders": ["asc", "desc"]
-      }
-    },
-    "deployment": {
-      "environments": ["development", "staging", "production"],
-      "platforms": ["docker", "kubernetes", "aws", "gcp", "azure", "heroku", "vercel", "netlify"],
-      "databases": ["mongodb", "mysql", "postgresql", "redis", "sqlite", "dynamodb", "firestore"],
-      "monitoring": ["prometheus", "grafana", "datadog", "newrelic", "sentry", "bugsnag"],
-      "logging": ["winston", "pino", "bunyan", "log4js", "elasticsearch", "splunk"],
-      "testing": ["jest", "mocha", "chai", "supertest", "cypress", "playwright", "puppeteer"],
-      "ci-cd": ["github-actions", "gitlab-ci", "jenkins", "travis", "circleci", "azure-devops"]
+
+    /**
+     * Display QR code in terminal
+     */
+    async _displayInTerminal(qrData, options) {
+        try {
+            const terminalOptions = {
+                small: options.size === 'small'
+            };
+            
+            console.log('\n📱 Scan this QR code with your WhatsApp mobile app:\n');
+            qrTerminal.generate(qrData, terminalOptions);
+            console.log('\n⏰ QR code will refresh automatically every 30 seconds\n');
+            
+        } catch (error) {
+            this.logger.error('Failed to display QR in terminal:', error);
+        }
     }
-  }
-}
+
+    /**
+     * Save QR code as image file
+     */
+    async _saveAsImage(qrData, options) {
+        try {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `qr-${timestamp}.${options.format}`;
+            const filepath = path.join(this.qrDir, filename);
+            
+            const qrCodeOptions = {
+                errorCorrectionLevel: options.errorCorrectionLevel,
+                type: 'image/png',
+                quality: 0.92,
+                margin: options.margin,
+                color: options.color,
+                width: this._getSizeInPixels(options.size)
+            };
+            
+            if (options.format === 'svg') {
+                qrCodeOptions.type = 'svg';
+                await QRCode.toFile(filepath, qrData, qrCodeOptions);
+            } else {
+                // Generate PNG and optionally convert to other formats
+                const buffer = await QRCode.toBuffer(qrData, qrCodeOptions);
+                
+                if (options.format === 'png') {
+                    await fs.writeFile(filepath, buffer);
+                } else {
+                    // Use sharp to convert to other formats
+                    await sharp(buffer)
+                        .toFormat(options.format)
+                        .toFile(filepath);
+                }
+            }
+            
+            this.logger.info(`QR code saved: ${filepath}`);
+            return filepath;
+            
+        } catch (error) {
+            this.logger.error('Failed to save QR code:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Generate QR code as data URL
+     */
+    async _generateDataURL(qrData, options) {
+        try {
+            const qrCodeOptions = {
+                errorCorrectionLevel: options.errorCorrectionLevel,
+                margin: options.margin,
+                color: options.color,
+                width: this._getSizeInPixels(options.size)
+            };
+            
+            return await QRCode.toDataURL(qrData, qrCodeOptions);
+            
+        } catch (error) {
+            this.logger.error('Failed to generate data URL:', error);
+            throw error;
+        }
+    }
 
     /**
      * Read QR code from image file
@@ -467,6 +185,10 @@
     async readQRCode(imagePath) {
         try {
             this.logger.info('📖 Reading QR code from image...');
+            
+            if (!await fs.pathExists(imagePath)) {
+                throw new Error(`Image file not found: ${imagePath}`);
+            }
             
             // Read and process image
             const imageBuffer = await fs.readFile(imagePath);
@@ -509,7 +231,6 @@
      */
     validateQRData(qrData) {
         try {
-            // Basic validation
             if (!qrData || typeof qrData !== 'string') {
                 return { valid: false, reason: 'Invalid QR data format' };
             }
@@ -523,7 +244,8 @@
                         type: 'whatsapp',
                         timestamp: parts[0].substring(2),
                         random: parts[1],
-                        clientId: parts[2]
+                        publicKey: parts[2],
+                        clientId: parts[3] || null
                     };
                 }
             }
@@ -562,3 +284,145 @@
             };
         }
     }
+
+    /**
+     * Display QR code with enhanced options
+     */
+    async displayQRCode(qrData, options = {}) {
+        return await this.generateQRCode(qrData, options);
+    }
+
+    /**
+     * Get QR code in specified format
+     */
+    async getQRCode(format = 'terminal') {
+        try {
+            if (!this.currentQR) {
+                throw new Error('No QR code available');
+            }
+            
+            const qrData = this.currentQR.data;
+            
+            switch (format) {
+                case 'terminal':
+                    qrTerminal.generate(qrData, { small: true });
+                    return qrData;
+                    
+                case 'dataurl':
+                    return await this._generateDataURL(qrData, this.currentQR.options);
+                    
+                case 'buffer':
+                    return await QRCode.toBuffer(qrData);
+                    
+                case 'svg':
+                    return await QRCode.toString(qrData, { type: 'svg' });
+                    
+                default:
+                    return qrData;
+            }
+            
+        } catch (error) {
+            throw new AuthenticationError(`Failed to get QR code: ${error.message}`, 'QR_GET_FAILED', { error });
+        }
+    }
+
+    /**
+     * Get QR code history
+     */
+    getQRHistory() {
+        return this.qrHistory.map(qr => ({
+            timestamp: qr.timestamp,
+            data: qr.data.substring(0, 50) + '...',
+            format: qr.options.format,
+            size: qr.options.size
+        }));
+    }
+
+    /**
+     * Clear QR code history
+     */
+    clearHistory() {
+        this.qrHistory = [];
+        this.logger.info('QR code history cleared');
+    }
+
+    /**
+     * Get current QR code info
+     */
+    getCurrentQRInfo() {
+        if (!this.currentQR) {
+            return null;
+        }
+        
+        return {
+            timestamp: this.currentQR.timestamp,
+            age: Date.now() - this.currentQR.timestamp,
+            format: this.currentQR.options.format,
+            size: this.currentQR.options.size,
+            validation: this.validateQRData(this.currentQR.data)
+        };
+    }
+
+    /**
+     * Ensure QR directory exists
+     */
+    async _ensureQRDirectory() {
+        try {
+            await fs.ensureDir(this.qrDir);
+        } catch (error) {
+            this.logger.error('Failed to create QR directory:', error);
+        }
+    }
+
+    /**
+     * Add QR to history
+     */
+    _addToHistory(qrInfo) {
+        this.qrHistory.push(qrInfo);
+        
+        // Maintain history size limit
+        if (this.qrHistory.length > this.maxHistorySize) {
+            this.qrHistory.shift();
+        }
+    }
+
+    /**
+     * Get size in pixels based on size name
+     */
+    _getSizeInPixels(sizeName) {
+        const sizes = {
+            small: 200,
+            medium: 300,
+            large: 400,
+            xlarge: 500
+        };
+        
+        return sizes[sizeName] || sizes.medium;
+    }
+
+    /**
+     * Cleanup old QR files
+     */
+    async cleanup() {
+        try {
+            const files = await fs.readdir(this.qrDir);
+            const now = Date.now();
+            const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+            
+            for (const file of files) {
+                const filePath = path.join(this.qrDir, file);
+                const stats = await fs.stat(filePath);
+                
+                if (now - stats.mtime.getTime() > maxAge) {
+                    await fs.remove(filePath);
+                    this.logger.debug(`Removed old QR file: ${file}`);
+                }
+            }
+            
+        } catch (error) {
+            this.logger.error('Failed to cleanup QR files:', error);
+        }
+    }
+}
+
+module.exports = { QRHandler };

@@ -1,412 +1,504 @@
-# ChatPulse - Advanced WhatsApp Web API Library
+{
+  "name": "chatpulse",
+  "version": "1.0.0",
+  "description": "ChatPulse - Advanced WhatsApp Web API Library",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "basic": "node examples/basic-example.js",
+    "advanced": "node examples/advanced-example.js",
+    "test": "node examples/test-connection.js",
+    "dev": "node examples/advanced-example.js",
+    "pairing": "node examples/pairing-example.js",
+    "build": "npm run lint && npm run test:unit",
+    "lint": "eslint src/ examples/ --ext .js",
+    "lint:fix": "eslint src/ examples/ --ext .js --fix",
+    "test:unit": "jest --coverage",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:e2e": "jest --testPathPattern=e2e",
+    "docs": "jsdoc -c jsdoc.conf.json",
+    "clean": "rimraf node_modules package-lock.json",
+    "reinstall": "npm run clean && npm install",
+    "security": "npm audit && npm audit fix",
+    "update": "npm update && npm audit fix"
+  },
+  "keywords": [
+    "whatsapp",
+    "whatsapp-web",
+    "whatsapp-api",
+    "whatsapp-bot",
+    "whatsapp-automation",
+    "chatbot",
+    "bot-framework",
+    "messaging",
+    "automation",
+    "qr-code",
+    "pairing-code",
+    "multi-device",
+    "end-to-end-encryption",
+    "media-sharing",
+    "group-management",
+    "business-api",
+    "webhook",
+    "real-time",
+    "cross-platform",
+    "typescript-support"
+  ],
+  "author": "DarkWinzo <isurulakshan9998@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DarkSide-Developers/ChatPulse.git"
+  },
+  "homepage": "https://github.com/DarkSide-Developers/ChatPulse",
+  "bugs": {
+    "url": "https://github.com/DarkSide-Developers/ChatPulse/issues"
+  },
+  "dependencies": {
+    "events": "^3.3.0",
+    "ws": "^8.14.2",
+    "node-fetch": "^2.7.0",
+    "protobufjs": "^7.2.5",
+    "qrcode-terminal": "^0.12.0",
+    "qrcode": "^1.5.3",
+    "pino": "^8.16.1",
+    "pino-pretty": "^10.2.3",
+    "fs-extra": "^11.1.1",
+    "mime-types": "^2.1.35",
+    "crypto-js": "^4.2.0",
+    "axios": "^1.6.2",
+    "libphonenumber-js": "^1.10.51",
+    "qr-image": "^3.2.0",
+    "node-cache": "^5.1.2",
+    sessionName: 'my-bot',
+    authStrategy: 'phone_number',
+    phoneNumber: '+1234567890'
+});
+    "puppeteer": "^21.6.1",
+    "dotenv": "^16.3.1",
+    "uuid": "^9.0.1",
+    "sharp": "^0.33.0",
+    "jsqr": "^1.4.0"
+  },
+  "devDependencies": {
+    "pino-pretty": "^10.2.3",
+    "nodemon": "^3.0.1",
+    "eslint": "^8.55.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "jsdoc": "^4.0.2",
+    "rimraf": "^5.0.5",
+    "@types/node": "^20.10.4",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.1",
+    "@typescript-eslint/eslint-plugin": "^6.13.2",
+    "@typescript-eslint/parser": "^6.13.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "preferGlobal": false,
+  "private": false,
+  "config": {
+    "port": 3000,
+    "logLevel": "info",
+    "sessionTimeout": 300000,
+    "maxConnections": 100,
+    "rateLimitWindow": 60000,
+    "rateLimitMax": 100
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/DarkWinzo"
+  },
+  "contributors": [
+    {
+      "name": "DarkWinzo",
+      "email": "isurulakshan9998@gmail.com",
+      "url": "https://github.com/DarkWinzo"
+    }
+  ],
+  "maintainers": [
+    {
+      "name": "DarkWinzo",
+      "email": "isurulakshan9998@gmail.com",
+      "url": "https://github.com/DarkWinzo"
+    }
+  ],
+  "files": [
+    "src/",
+    "lib/",
+    "examples/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "directories": {
+    "lib": "./src",
+    "doc": "./docs",
+    "example": "./examples",
+    "test": "./tests"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "chatpulse": {
+    "features": {
+      "qrAuthentication": true,
+      "pairingAuthentication": true,
+      "multiDevice": true,
+      "endToEndEncryption": true,
+      "mediaSupport": true,
+      "groupManagement": true,
+      "businessAPI": true,
+      "webhooks": true,
+      "realTimeMessaging": true,
+      "rateLimiting": true,
+      "sessionManagement": true,
+      "errorRecovery": true,
+      "logging": true,
+      "validation": true,
+      "messageQueue": true,
+      "fileUpload": true,
+      "voiceMessages": true,
+      "stickers": true,
+      "polls": true,
+      "buttons": true,
+      "lists": true,
+      "contacts": true,
+      "location": true,
+      "reactions": true,
+      "forwarding": true,
+      "editing": true,
+      "deletion": true,
+      "archiving": true,
+      "pinning": true,
+      "muting": true,
+      "blocking": true,
+      "presence": true,
+      "typing": true,
+      "recording": true,
+      "readReceipts": true,
+      "messageHistory": true,
+      "backup": true,
+      "restore": true,
+      "export": true,
+      "import": true,
+      "analytics": true,
+      "monitoring": true,
+      "clustering": true,
+      "loadBalancing": true,
+      "caching": true,
+      "database": true,
+      "api": true,
+      "cli": true,
+      "gui": true,
+      "mobile": true,
+      "desktop": true,
+      "web": true,
+      "cloud": true,
+      "onPremise": true,
+      "docker": true,
+      "kubernetes": true,
+      "serverless": true,
+      "microservices": true,
+      "eventDriven": true,
+      "reactive": true,
+      "async": true,
+      "streaming": true,
+      "batch": true,
+      "scheduled": true,
+      "triggered": true,
+      "conditional": true,
+      "templated": true,
+      "personalized": true,
+      "localized": true,
+      "accessible": true,
+      "secure": true,
+      "compliant": true,
+      "auditable": true,
+      "testable": true,
+      "maintainable": true,
+      "scalable": true,
+      "performant": true,
+      "reliable": true,
+      "available": true,
+      "durable": true,
+      "consistent": true,
+      "eventual": true,
+      "strong": true,
+      "weak": true,
+      "causal": true,
+      "monotonic": true,
+      "sequential": true,
+      "linearizable": true,
+      "serializable": true,
+      "snapshot": true,
+      "readCommitted": true,
+      "repeatableRead": true,
+      "phantom": true,
+      "dirty": true,
+      "lost": true,
+      "nonRepeatable": true,
+      "writeSkew": true,
+      "readSkew": true,
+      "phantomRead": true,
+      "dirtyRead": true,
+      "lostUpdate": true,
+      "nonRepeatableRead": true
+    },
+    "authentication": {
+      "methods": [
+        "qr",
+        "pairing",
+        "session",
+        "token",
+        "oauth",
+        "jwt",
+        "api-key",
+        "webhook"
+      ],
+      "security": {
+        "encryption": "AES-256",
+        "hashing": "SHA-256",
+        "signing": "HMAC-SHA256",
+        "keyExchange": "ECDH",
+        "keyDerivation": "PBKDF2",
+        "randomGeneration": "CSPRNG"
+      }
+    },
+    "messaging": {
+      "types": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "document",
+        "sticker",
+        "location",
+        "contact",
+        "poll",
+        "button",
+        "list",
+        "template",
+        "carousel",
+        "interactive"
+      ],
+      "features": [
+        "reactions",
+        "replies",
+        "forwards",
+        "edits",
+        "deletions",
+        "mentions",
+        "hashtags",
+        "links",
+        "previews",
+        "thumbnails",
+        "captions",
+        "metadata",
+        "timestamps",
+        "status",
+        "delivery",
+        "read",
+        "typing",
+        "recording",
+        "presence"
+      ]
+    },
+    "media": {
+      "formats": {
+        "image": ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff"],
+        "video": ["mp4", "avi", "mov", "mkv", "webm", "3gp", "flv"],
+        "audio": ["mp3", "wav", "ogg", "aac", "m4a", "flac", "wma"],
+        "document": ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"]
+      },
+      "limits": {
+        "maxFileSize": "64MB",
+        "maxImageSize": "16MB",
+        "maxVideoSize": "64MB",
+        "maxAudioSize": "16MB",
+        "maxDocumentSize": "100MB"
+      },
+      "processing": {
+        "compression": true,
+        "resizing": true,
+        "conversion": true,
+        "optimization": true,
+        "thumbnails": true,
+        "previews": true,
+        "metadata": true,
+        "watermarks": true,
+        "filters": true,
+        "effects": true
+      }
+    },
+    "groups": {
+      "features": [
+        "create",
+        "delete",
+        "update",
+        "join",
+        "leave",
+        "invite",
+        "remove",
+        "promote",
+        "demote",
+        "mute",
+        "unmute",
+        "archive",
+        "unarchive",
+        "pin",
+        "unpin",
+        "description",
+        "picture",
+        "settings",
+        "permissions",
+        "announcements",
+        "ephemeral",
+        "disappearing"
+      ],
+      "limits": {
+        "maxParticipants": 1024,
+        "maxAdmins": 50,
+        "maxDescriptionLength": 512,
+        "maxNameLength": 25
+      }
+    },
+    "business": {
+      "features": [
+        "catalog",
+        "products",
+        "orders",
+        "payments",
+        "shipping",
+        "invoices",
+        "receipts",
+        "labels",
+        "templates",
+        "broadcasts",
+        "campaigns",
+        "analytics",
+        "insights",
+        "reports",
+        "metrics",
+        "kpis",
+        "dashboards",
+        "alerts",
+        "notifications",
+        "webhooks"
+      ],
+      "integrations": [
+        "shopify",
+        "woocommerce",
+        "magento",
+        "prestashop",
+        "opencart",
+        "bigcommerce",
+        "squarespace",
+        "stripe",
+        "paypal",
+        "square",
+        "razorpay",
+        "payu",
+        "paytm",
+        "phonepe",
+        "googlepay",
+        "applepay",
+        "amazonpay",
+        "samsungpay",
+        "mastercard",
+        "visa",
+        "amex",
+        "discover"
+      ]
+    },
+    "api": {
+      "versions": ["v1", "v2", "v3"],
+      "protocols": ["REST", "GraphQL", "WebSocket", "gRPC"],
+      "formats": ["JSON", "XML", "YAML", "CSV", "Protobuf"],
+      "authentication": ["Bearer", "Basic", "Digest", "OAuth", "JWT", "API-Key"],
+      "rateLimit": {
+        "requests": 1000,
+        "window": "1h",
+        "burst": 100
+      },
+      "pagination": {
+        "default": 20,
+        "max": 100,
+        "methods": ["offset", "cursor", "page"]
+      },
+      "filtering": {
+        "operators": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
+        "fields": ["id", "timestamp", "type", "status", "from", "to", "body"]
+      },
+      "sorting": {
+        "fields": ["id", "timestamp", "type", "status"],
+        "orders": ["asc", "desc"]
+      }
+    },
+    "deployment": {
+      "environments": ["development", "staging", "production"],
+      "platforms": ["docker", "kubernetes", "aws", "gcp", "azure", "heroku", "vercel", "netlify"],
+      "databases": ["mongodb", "mysql", "postgresql", "redis", "sqlite", "dynamodb", "firestore"],
+      "monitoring": ["prometheus", "grafana", "datadog", "newrelic", "sentry", "bugsnag"],
+      "logging": ["winston", "pino", "bunyan", "log4js", "elasticsearch", "splunk"],
+      "testing": ["jest", "mocha", "chai", "supertest", "cypress", "playwright", "puppeteer"],
+      "ci-cd": ["github-actions", "gitlab-ci", "jenkins", "travis", "circleci", "azure-devops"]
+    }
+  }
+}
 
-<div align="center">
-
-**A powerful and feature-rich WhatsApp Web automation library**
-
-[![npm version](https://badge.fury.io/js/chatpulse.svg)](https://badge.fury.io/js/chatpulse)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](https://nodejs.org/)
-
-</div>
-
-## 🚀 Features
-
-### 🔐 **Authentication Options**
-- **QR Code Authentication** - Traditional QR scanning
-- **Pairing Code Authentication** - Phone number linking
-- **Session Management** - Secure session storage and restoration
-
-### 💬 **Advanced Messaging**
-- **Text Messages** - Rich text with markdown support
-- **Button Messages** - Interactive button interfaces
-- **List Messages** - Organized menu selections
-- **Poll Messages** - Create polls with multiple options
-- **Contact Sharing** - Share contact information
-- **Location Sharing** - Send GPS coordinates
-- **Message Reactions** - React with emojis
-- **Message Editing** - Edit sent messages
-- **Message Forwarding** - Forward messages between chats
-- **Message Deletion** - Delete for self or everyone
-
-### 📎 **Media Handling**
-- **Images, Videos, Audio** - Full media support
-- **Documents** - Send any file type
-- **Stickers** - Send and create custom stickers
-- **Voice Messages** - Send voice recordings
-- **Media Download** - Download received media
-- **Media Info** - Get media metadata
-
-### 👥 **Group Management**
-- **Create Groups** - Create new WhatsApp groups
-- **Add/Remove Participants** - Manage group members
-- **Group Settings** - Update description, settings
-- **Admin Functions** - Full admin capabilities
-
-### 🛠️ **Chat Management**
-- **Archive/Unarchive** - Organize chats
-- **Pin/Unpin** - Pin important chats
-- **Mute/Unmute** - Control notifications
-- **Block/Unblock** - Manage contacts
-- **Chat Presence** - Set typing, recording status
-
-### 📊 **Information & Monitoring**
-- **Chat Information** - Get detailed chat data
-- **Contact Management** - Access contact list
-- **Device Information** - Monitor device status
-- **Presence Updates** - Track online status
-- **Call Monitoring** - Handle incoming calls
-
-## 📦 Installation
-
-```bash
-npm install chatpulse
-```
-
-## 🏃‍♂️ Quick Start
-
-### Basic Setup
-
+### Email Authentication
+client.on('phone_verification_sent', async (data) => {
 ```javascript
-const { ChatPulse } = require('chatpulse');
-
-// Initialize with QR authentication
 const client = new ChatPulse({
     sessionName: 'my-bot',
-    headless: false,
-    authStrategy: 'qr'
+    authStrategy: 'email',
+    email: 'user@example.com'
 });
-
-// Handle ready event
-client.on('ready', () => {
-    console.log('ChatPulse is ready!');
+    console.log(`Verification sent to: ${data.phoneNumber}`);
+client.on('email_magic_link_sent', (data) => {
+    console.log(`Magic link sent to: ${data.email}`);
+    console.log(`Link: ${data.magicLink}`);
 });
-
-// Handle messages
-client.on('message', (message) => {
-    console.log(`Received: ${message.body}`);
-});
-
-// Initialize
-client.initialize();
 ```
-
-### Pairing Code Authentication
-
+    
+### Multi-Device Authentication
+    // User enters verification code
 ```javascript
 const client = new ChatPulse({
     sessionName: 'my-bot',
-    authStrategy: 'pairing',
-    pairingNumber: '+1234567890' // Your phone number
-});
-
-client.on('pairing_code', (code) => {
-    console.log(`Pairing Code: ${code}`);
-    // Enter this code in your WhatsApp mobile app
-});
-```
-
-## 📖 Advanced Usage
-
-### Button Messages
-
-```javascript
-await client.sendButtonMessage(chatId, 
-    '🎛️ Choose an option:', 
-    [
-        { id: 'btn1', text: '📊 Get Info' },
-        { id: 'btn2', text: '📱 Status' },
-        { id: 'btn3', text: '🎮 Games' }
-    ],
-    { footer: 'ChatPulse Bot' }
-);
-
-// Handle button responses
-client.on('button_response', (message) => {
-    console.log(`Button pressed: ${message.selectedButtonId}`);
-});
-```
-
-### List Messages
-
-```javascript
-await client.sendListMessage(chatId,
-    '📋 Bot Menu',
-    'Select Option',
-    [
-        {
-            title: '🤖 Bot Commands',
-            rows: [
-                { id: 'help', title: 'Help', description: 'Show commands' },
-                { id: 'info', title: 'Info', description: 'Bot information' }
-            ]
-        },
-        {
-            title: '🎮 Entertainment',
-            rows: [
-                { id: 'joke', title: 'Joke', description: 'Random joke' },
-                { id: 'quote', title: 'Quote', description: 'Inspiration' }
-            ]
-        }
-    ]
-);
-
-// Handle list responses
-client.on('list_response', (message) => {
-    console.log(`Selected: ${message.selectedRowId}`);
-});
-```
-
-### Poll Messages
-
-```javascript
-await client.sendPoll(chatId,
-    '🗳️ What\'s your favorite language?',
-    ['JavaScript', 'Python', 'Java', 'C++'],
-    { multipleAnswers: false }
-);
-
-// Handle poll updates
-client.on('poll_update', (message) => {
-    console.log('Poll update:', message);
-});
-```
-
-### Media Messages
-
-```javascript
-// Send image with caption
-await client.sendMedia(chatId, './image.jpg', {
-    caption: 'Check this out! 📸',
-    mentions: ['1234567890@c.us']
-});
-
-// Send sticker
-await client.sendSticker(chatId, './sticker.webp');
-
-// Send voice message
-await client.sendVoiceMessage(chatId, './audio.mp3', {
-    duration: 30
-});
-
-// Download media
-const mediaPath = await client.mediaHandler.downloadMedia(message);
-console.log(`Media saved to: ${mediaPath}`);
-```
-
-### Contact & Location
-
-```javascript
-// Send contact
-await client.sendContact(chatId, {
-    name: 'John Doe',
-    number: '+1234567890',
-    organization: 'Company Inc.',
-    email: 'john@example.com'
-});
-
-// Send location
-await client.sendLocation(chatId, 
-    40.7128, -74.0060, 
-    '📍 New York City'
-);
-```
-
-### Message Management
-
-```javascript
-// React to message
-await client.reactToMessage(messageId, '❤️');
-
-// Edit message
-await client.editMessage(messageId, 'Updated text');
-
-// Delete message
-await client.deleteMessage(messageId, true); // true = for everyone
-
-// Forward message
-await client.forwardMessage(targetChatId, messageId);
-
-// Star message
-await client.starMessage(messageId, true);
-```
-
-### Chat Management
-
-```javascript
-// Archive chat
-await client.archiveChat(chatId, true);
-
-// Pin chat
-await client.pinChat(chatId, true);
-
-// Mute chat (1 hour)
-await client.muteChat(chatId, 3600000);
-
-// Set typing indicator
-await client.setChatPresence(chatId, 'typing');
-
-// Block contact
-await client.blockContact(contactId, true);
-```
-
-### Group Management
-
-```javascript
-// Create group
-const group = await client.createGroup('My Group', [
-    '1234567890@c.us',
-    '0987654321@c.us'
-]);
-
-// Add participants
-await client.addParticipants(groupId, ['1111111111@c.us']);
-
-// Remove participants
-await client.removeParticipants(groupId, ['1111111111@c.us']);
-
-// Set group description
-await client.setGroupDescription(groupId, 'Welcome to our group!');
-```
-
-### Information Retrieval
-
-```javascript
-// Get chat info
-const chatInfo = await client.getChatInfo(chatId);
-console.log(chatInfo);
-
-// Get all chats
-const chats = await client.getChats();
-
-// Get contacts
-const contacts = await client.getContacts();
-
-// Get device info
-const deviceInfo = await client.getDeviceInfo();
-
-// Get profile picture
-const profileUrl = await client.getProfilePicUrl(contactId);
-```
-
-## ⚙️ Configuration Options
-
-```javascript
-const client = new ChatPulse({
-    sessionName: 'my-bot',              // Session identifier
-    headless: true,                     // Browser headless mode
-    userDataDir: './sessions',          // Session storage directory
-    autoReconnect: true,                // Auto-reconnection
-    reconnectInterval: 30000,           // Reconnection interval (ms)
-    authStrategy: 'qr',                 // 'qr' or 'pairing'
-    pairingNumber: '+1234567890',       // For pairing auth
-    markOnlineOnConnect: true,          // Mark as online
-    syncFullHistory: false,             // Sync message history
-    puppeteerOptions: {                 // Custom Puppeteer options
-        args: ['--no-sandbox']
+    authStrategy: 'multi_device',
+    deviceInfo: {
+        deviceId: 'laptop-001',
+        deviceName: 'My Laptop',
+        deviceType: 'desktop',
+        platform: 'linux'
     }
 });
+    const verificationCode = '123456'; // From user input
+client.on('device_pairing_qr', (data) => {
+    console.log(`Scan QR with primary device: ${data.qrCode}`);
+});
 ```
-
-## 🎯 Event System
-
-```javascript
-// Connection events
-client.on('ready', () => {});
-client.on('connected', () => {});
-client.on('disconnected', () => {});
-client.on('qr_generated', (qrInfo) => {});
-client.on('pairing_code', (code) => {});
-
-// Message events
-client.on('message', (message) => {});
-client.on('message_sent', (result) => {});
-client.on('button_response', (message) => {});
-client.on('list_response', (message) => {});
-client.on('poll_update', (message) => {});
-
-// Media events
-client.on('media_sent', (result) => {});
-client.on('sticker_sent', (result) => {});
-client.on('voice_sent', (result) => {});
-
-// Chat events
-client.on('presence_update', (presence) => {});
-client.on('call', (call) => {});
-client.on('group_update', (update) => {});
-
-// Error handling
-client.on('error', (error) => {});
+    const result = await client.authenticator.verifyPhoneNumber(data.sessionId, verificationCode);
+    console.log('Verification result:', result);
+});
 ```
-
-## 🛠️ Development
-
-```bash
-# Clone repository
-git clone https://github.com/DarkSide-Developers/ChatPulse.git
-cd ChatPulse
-
-# Install dependencies
-npm install
-
-# Run advanced example
-npm run dev
-
-# Run basic example
-npm run basic
-```
-
-## 📁 Project Structure
-
-```
-ChatPulse/
-├── lib/
-│   ├── core/           # Core ChatPulse functionality
-│   ├── handlers/       # Message and media handlers
-│   ├── session/        # Session management
-│   ├── media/          # Media handling
-│   ├── events/         # Event system
-│   ├── utils/          # Utility functions
-│   └── index.js        # Main exports
-├── examples/
-│   ├── basic-bot.js    # Basic bot example
-│   └── advanced-bot.js # Advanced features example
-└── README.md
-```
-
-## 🎯 Use Cases
-
-- **🤖 Advanced Chatbots** - Interactive bots with buttons and menus
-- **📢 Notification Systems** - Rich notifications with media
-- **🎮 Interactive Applications** - Games and entertainment bots
-- **📊 Business Automation** - Customer service and support
-- **👥 Group Management** - Automated group administration
-- **📱 Multi-device Support** - Cross-platform messaging
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 👥 Authors
-
-- **DarkWinzo** - *Lead Developer* - [GitHub](https://github.com/DarkWinzo)
-- **DarkSide Developer Team** - [GitHub](https://github.com/DarkSide-Developers)
-
-## 📞 Support
-
-- **Email**: isurulakshan9998@gmail.com
-- **Issues**: [GitHub Issues](https://github.com/DarkSide-Developers/ChatPulse/issues)
-
-## ⚠️ Disclaimer
-
-This project is not affiliated with WhatsApp. Use responsibly and in accordance with WhatsApp's Terms of Service.
-
----
-
-<div align="center">
-
-**Made with ❤️ by [DarkSide Developer Team](https://github.com/DarkSide-Developers)**
-
-© 2025 DarkSide Developer Team. All rights reserved.
-
-</div>

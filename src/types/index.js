@@ -1,462 +1,235 @@
-{
-  "name": "chatpulse",
-  "version": "1.0.0",
-  "description": "ChatPulse - Advanced WhatsApp Web API Library",
-  "main": "src/index.js",
-  "scripts": {
-    "start": "node src/index.js",
-    "basic": "node examples/basic-example.js",
-    "advanced": "node examples/advanced-example.js",
-    "test": "node examples/test-connection.js",
-    "dev": "node examples/advanced-example.js",
-    "pairing": "node examples/pairing-example.js",
-    "build": "npm run lint && npm run test:unit",
-    "lint": "eslint src/ examples/ --ext .js",
-    "lint:fix": "eslint src/ examples/ --ext .js --fix",
-    "test:unit": "jest --coverage",
-    "test:integration": "jest --testPathPattern=integration",
-    "test:e2e": "jest --testPathPattern=e2e",
-    "docs": "jsdoc -c jsdoc.conf.json",
-    "clean": "rimraf node_modules package-lock.json",
-    "reinstall": "npm run clean && npm install",
-    "security": "npm audit && npm audit fix",
-    "update": "npm update && npm audit fix"
-  },
-  "keywords": [
-    "whatsapp",
-    "whatsapp-web",
-    "whatsapp-api",
-    "whatsapp-bot",
-    "whatsapp-automation",
-    "chatbot",
-    "bot-framework",
-    "messaging",
-    "automation",
-    "qr-code",
-    "pairing-code",
-    "multi-device",
-    "end-to-end-encryption",
-    "media-sharing",
-    "group-management",
-    "business-api",
-    "webhook",
-    "real-time",
-    "cross-platform",
-    "typescript-support"
-  ],
-  "author": "DarkWinzo <isurulakshan9998@gmail.com>",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/DarkSide-Developers/ChatPulse.git"
-  },
-  "homepage": "https://github.com/DarkSide-Developers/ChatPulse",
-  "bugs": {
-    "url": "https://github.com/DarkSide-Developers/ChatPulse/issues"
-  },
-  "dependencies": {
-    "events": "^3.3.0",
-    "ws": "^8.14.2",
-    "node-fetch": "^2.7.0",
-    "protobufjs": "^7.2.5",
-    "qrcode-terminal": "^0.12.0",
-    "qrcode": "^1.5.3",
-    "pino": "^8.16.1",
-    "pino-pretty": "^10.2.3",
-    "fs-extra": "^11.1.1",
-    "mime-types": "^2.1.35",
-    "crypto-js": "^4.2.0",
-    "axios": "^1.6.2",
-    "libphonenumber-js": "^1.10.51",
-    "qr-image": "^3.2.0",
-    "node-cache": "^5.1.2",
-    "puppeteer": "^21.6.1",
-    "dotenv": "^16.3.1",
-    "uuid": "^9.0.1",
-    "sharp": "^0.33.0",
-    "jsqr": "^1.4.0"
-  },
-  "devDependencies": {
-    "pino-pretty": "^10.2.3",
-    "nodemon": "^3.0.1",
-    "eslint": "^8.55.0",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-import": "^2.29.0",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^6.1.1",
-    "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "jsdoc": "^4.0.2",
-    "rimraf": "^5.0.5",
-    "@types/node": "^20.10.4",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.1",
-    "@typescript-eslint/eslint-plugin": "^6.13.2",
-    "@typescript-eslint/parser": "^6.13.2"
-  },
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
-  },
-  "os": [
-    "linux",
-    "darwin",
-    "win32"
-  ],
-  "cpu": [
-    "x64",
-    "arm64"
-  ],
-  "preferGlobal": false,
-  "private": false,
-  "config": {
-    "port": 3000,
-    "logLevel": "info",
-    "sessionTimeout": 300000,
-    "maxConnections": 100,
-    "rateLimitWindow": 60000,
-    "rateLimitMax": 100
-  },
-  "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/DarkWinzo"
-  },
-  "contributors": [
-    {
-      "name": "DarkWinzo",
-      "email": "isurulakshan9998@gmail.com",
-      "url": "https://github.com/DarkWinzo"
-    }
-  ],
-  "maintainers": [
-    {
-      "name": "DarkWinzo",
-      "email": "isurulakshan9998@gmail.com",
-      "url": "https://github.com/DarkWinzo"
-    }
-  ],
-  "files": [
-    "src/",
-    "lib/",
-    "examples/",
-    "docs/",
-    "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
-  ],
-  "directories": {
-    "lib": "./src",
-    "doc": "./docs",
-    "example": "./examples",
-    "test": "./tests"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
-  "chatpulse": {
-    "features": {
-      "qrAuthentication": true,
-      "pairingAuthentication": true,
-      "multiDevice": true,
-      "endToEndEncryption": true,
-      "mediaSupport": true,
-      "groupManagement": true,
-      "businessAPI": true,
-      "webhooks": true,
-      "realTimeMessaging": true,
-      "rateLimiting": true,
-      "sessionManagement": true,
-      "errorRecovery": true,
-      "logging": true,
-      "validation": true,
-      "messageQueue": true,
-      "fileUpload": true,
-      "voiceMessages": true,
-      "stickers": true,
-      "polls": true,
-      "buttons": true,
-      "lists": true,
-      "contacts": true,
-      "location": true,
-      "reactions": true,
-      "forwarding": true,
-      "editing": true,
-      "deletion": true,
-      "archiving": true,
-      "pinning": true,
-      "muting": true,
-      "blocking": true,
-      "presence": true,
-      "typing": true,
-      "recording": true,
-      "readReceipts": true,
-      "messageHistory": true,
-      "backup": true,
-      "restore": true,
-      "export": true,
-      "import": true,
-      "analytics": true,
-      "monitoring": true,
-      "clustering": true,
-      "loadBalancing": true,
-      "caching": true,
-      "database": true,
-      "api": true,
-      "cli": true,
-      "gui": true,
-      "mobile": true,
-      "desktop": true,
-      "web": true,
-      "cloud": true,
-      "onPremise": true,
-      "docker": true,
-      "kubernetes": true,
-      "serverless": true,
-      "microservices": true,
-      "eventDriven": true,
-      "reactive": true,
-      "async": true,
-      "streaming": true,
-      "batch": true,
-      "scheduled": true,
-      "triggered": true,
-      "conditional": true,
-      "templated": true,
-      "personalized": true,
-      "localized": true,
-      "accessible": true,
-      "secure": true,
-      "compliant": true,
-      "auditable": true,
-      "testable": true,
-      "maintainable": true,
-      "scalable": true,
-      "performant": true,
-      "reliable": true,
-      "available": true,
-      "durable": true,
-      "consistent": true,
-      "eventual": true,
-      "strong": true,
-      "weak": true,
-      "causal": true,
-      "monotonic": true,
-      "sequential": true,
-      "linearizable": true,
-      "serializable": true,
-      "snapshot": true,
-      "readCommitted": true,
-      "repeatableRead": true,
-      "phantom": true,
-      "dirty": true,
-      "lost": true,
-      "nonRepeatable": true,
-      "writeSkew": true,
-      "readSkew": true,
-      "phantomRead": true,
-      "dirtyRead": true,
-      "lostUpdate": true,
-      "nonRepeatableRead": true
-    },
-    "authentication": {
-      "methods": [
-        "qr",
-        "pairing",
-        "session",
-        "token",
-        "oauth",
-        "jwt",
-        "api-key",
-        "webhook"
-      ],
-      "security": {
-        "encryption": "AES-256",
-        "hashing": "SHA-256",
-        "signing": "HMAC-SHA256",
-        "keyExchange": "ECDH",
-        "keyDerivation": "PBKDF2",
-        "randomGeneration": "CSPRNG"
-      }
-    },
-    "messaging": {
-      "types": [
-        "text",
-        "image",
-        "video",
-        "audio",
-        "document",
-        "sticker",
-        "location",
-        "contact",
-        "poll",
-        "button",
-        "list",
-        "template",
-        "carousel",
-        "interactive"
-      ],
-      "features": [
-        "reactions",
-        "replies",
-        "forwards",
-        "edits",
-        "deletions",
-        "mentions",
-        "hashtags",
-        "links",
-        "previews",
-        "thumbnails",
-        "captions",
-        "metadata",
-        "timestamps",
-        "status",
-        "delivery",
-        "read",
-        "typing",
-        "recording",
-        "presence"
-      ]
-    },
-    "media": {
-      "formats": {
-        "image": ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff"],
-        "video": ["mp4", "avi", "mov", "mkv", "webm", "3gp", "flv"],
-        "audio": ["mp3", "wav", "ogg", "aac", "m4a", "flac", "wma"],
-        "document": ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"]
-      },
-      "limits": {
-        "maxFileSize": "64MB",
-        "maxImageSize": "16MB",
-        "maxVideoSize": "64MB",
-        "maxAudioSize": "16MB",
-        "maxDocumentSize": "100MB"
-      },
-      "processing": {
-        "compression": true,
-        "resizing": true,
-        "conversion": true,
-        "optimization": true,
-        "thumbnails": true,
-        "previews": true,
-        "metadata": true,
-        "watermarks": true,
-        "filters": true,
-        "effects": true
-      }
-    },
-    "groups": {
-      "features": [
-        "create",
-        "delete",
-        "update",
-        "join",
-        "leave",
-        "invite",
-        "remove",
-        "promote",
-        "demote",
-        "mute",
-        "unmute",
-        "archive",
-        "unarchive",
-        "pin",
-        "unpin",
-        "description",
-        "picture",
-        "settings",
-        "permissions",
-        "announcements",
-        "ephemeral",
-        "disappearing"
-      ],
-      "limits": {
-        "maxParticipants": 1024,
-        "maxAdmins": 50,
-        "maxDescriptionLength": 512,
-        "maxNameLength": 25
-      }
-    },
-    "business": {
-      "features": [
-        "catalog",
-        "products",
-        "orders",
-        "payments",
-        "shipping",
-        "invoices",
-        "receipts",
-        "labels",
-        "templates",
-        "broadcasts",
-        "campaigns",
-        "analytics",
-        "insights",
-        "reports",
-        "metrics",
-        "kpis",
-        "dashboards",
-        "alerts",
-        "notifications",
-        "webhooks"
-      ],
-      "integrations": [
-        "shopify",
-        "woocommerce",
-        "magento",
-        "prestashop",
-        "opencart",
-        "bigcommerce",
-        "squarespace",
-        "stripe",
-        "paypal",
-        "square",
-        "razorpay",
-        "payu",
-        "paytm",
-        "phonepe",
-        "googlepay",
-        "applepay",
-        "amazonpay",
-        "samsungpay",
-        "mastercard",
-        "visa",
-        "amex",
-        "discover"
-      ]
-    },
-    "api": {
-      "versions": ["v1", "v2", "v3"],
-      "protocols": ["REST", "GraphQL", "WebSocket", "gRPC"],
-      "formats": ["JSON", "XML", "YAML", "CSV", "Protobuf"],
-      "authentication": ["Bearer", "Basic", "Digest", "OAuth", "JWT", "API-Key"],
-      "rateLimit": {
-        "requests": 1000,
-        "window": "1h",
-        "burst": 100
-      },
-      "pagination": {
-        "default": 20,
-        "max": 100,
-        "methods": ["offset", "cursor", "page"]
-      },
-      "filtering": {
-        "operators": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
-        "fields": ["id", "timestamp", "type", "status", "from", "to", "body"]
-      },
-      "sorting": {
-        "fields": ["id", "timestamp", "type", "status"],
-        "orders": ["asc", "desc"]
-      }
-    },
-    "deployment": {
-      "environments": ["development", "staging", "production"],
-      "platforms": ["docker", "kubernetes", "aws", "gcp", "azure", "heroku", "vercel", "netlify"],
-      "databases": ["mongodb", "mysql", "postgresql", "redis", "sqlite", "dynamodb", "firestore"],
-      "monitoring": ["prometheus", "grafana", "datadog", "newrelic", "sentry", "bugsnag"],
-      "logging": ["winston", "pino", "bunyan", "log4js", "elasticsearch", "splunk"],
-      "testing": ["jest", "mocha", "chai", "supertest", "cypress", "playwright", "puppeteer"],
-      "ci-cd": ["github-actions", "gitlab-ci", "jenkins", "travis", "circleci", "azure-devops"]
-    }
-  }
-}
+/**
+ * ChatPulse - Type Definitions
+ * Developer: DarkWinzo (https://github.com/DarkWinzo)
+ * Email: isurulakshan9998@gmail.com
+ * Organization: DarkSide Developer Team
+ * GitHub: https://github.com/DarkSide-Developers
+ * Repository: https://github.com/DarkSide-Developers/ChatPulse
+ * © 2025 DarkSide Developer Team. All rights reserved.
+ */
+
+/**
+ * Message types supported by WhatsApp
+ */
+const MessageTypes = {
+    TEXT: 'text',
+    IMAGE: 'image',
+    VIDEO: 'video',
+    AUDIO: 'audio',
+    DOCUMENT: 'document',
+    STICKER: 'sticker',
+    LOCATION: 'location',
+    CONTACT: 'contact',
+    POLL: 'poll',
+    BUTTON: 'button',
+    LIST: 'list',
+    TEMPLATE: 'template',
+    INTERACTIVE: 'interactive',
+    REACTION: 'reaction',
+    EDIT: 'edit',
+    REVOKE: 'revoke'
+};
+
+/**
+ * Chat types
+ */
+const ChatTypes = {
+    INDIVIDUAL: 'individual',
+    GROUP: 'group',
+    BROADCAST: 'broadcast',
+    STATUS: 'status'
+};
+
+/**
+ * Authentication strategies
+ */
+const AuthStrategies = {
+    QR: 'qr',
+    PAIRING: 'pairing',
+    PHONE_NUMBER: 'phone_number',
+    EMAIL: 'email',
+    MULTI_DEVICE: 'multi_device',
+    BACKUP_CODE: 'backup_code',
+    BIOMETRIC: 'biometric',
+    SESSION: 'session'
+};
+
+/**
+ * Connection states
+ */
+const ConnectionStates = {
+    DISCONNECTED: 'disconnected',
+    CONNECTING: 'connecting',
+    CONNECTED: 'connected',
+    AUTHENTICATING: 'authenticating',
+    READY: 'ready',
+    RECONNECTING: 'reconnecting',
+    FAILED: 'failed',
+    CLOSING: 'closing'
+};
+
+/**
+ * Error types
+ */
+const ErrorTypes = {
+    CONNECTION_ERROR: 'connection_error',
+    AUTHENTICATION_ERROR: 'authentication_error',
+    MESSAGE_ERROR: 'message_error',
+    MEDIA_ERROR: 'media_error',
+    VALIDATION_ERROR: 'validation_error',
+    RATE_LIMIT_ERROR: 'rate_limit_error',
+    SESSION_ERROR: 'session_error',
+    NETWORK_ERROR: 'network_error',
+    TIMEOUT_ERROR: 'timeout_error',
+    UNKNOWN_ERROR: 'unknown_error'
+};
+
+/**
+ * Event types
+ */
+const EventTypes = {
+    // Connection events
+    CONNECTED: 'connected',
+    DISCONNECTED: 'disconnected',
+    RECONNECTING: 'reconnecting',
+    READY: 'ready',
+    
+    // Authentication events
+    QR_GENERATED: 'qr_generated',
+    QR_UPDATED: 'qr_updated',
+    PAIRING_CODE: 'pairing_code',
+    AUTHENTICATED: 'authenticated',
+    AUTHENTICATION_FAILED: 'authentication_failed',
+    
+    // Message events
+    MESSAGE: 'message',
+    MESSAGE_SENT: 'message_sent',
+    MESSAGE_RECEIVED: 'message_received',
+    MESSAGE_ACK: 'message_ack',
+    MESSAGE_EDITED: 'message_edited',
+    MESSAGE_DELETED: 'message_deleted',
+    MESSAGE_REACTION: 'message_reaction',
+    
+    // Interactive message events
+    BUTTON_RESPONSE: 'button_response',
+    LIST_RESPONSE: 'list_response',
+    POLL_UPDATE: 'poll_update',
+    
+    // Media events
+    MEDIA_SENT: 'media_sent',
+    MEDIA_RECEIVED: 'media_received',
+    STICKER_SENT: 'sticker_sent',
+    VOICE_SENT: 'voice_sent',
+    
+    // Chat events
+    CHAT_UPDATE: 'chat_update',
+    PRESENCE_UPDATE: 'presence_update',
+    TYPING: 'typing',
+    RECORDING: 'recording',
+    
+    // Group events
+    GROUP_JOIN: 'group_join',
+    GROUP_LEAVE: 'group_leave',
+    GROUP_UPDATE: 'group_update',
+    GROUP_PARTICIPANTS_UPDATE: 'group_participants_update',
+    
+    // Call events
+    CALL: 'call',
+    CALL_OFFER: 'call_offer',
+    CALL_ACCEPT: 'call_accept',
+    CALL_REJECT: 'call_reject',
+    CALL_END: 'call_end',
+    
+    // Error events
+    ERROR: 'error',
+    WARNING: 'warning'
+};
+
+/**
+ * Message status types
+ */
+const MessageStatus = {
+    PENDING: 'pending',
+    SENT: 'sent',
+    DELIVERED: 'delivered',
+    READ: 'read',
+    FAILED: 'failed',
+    DELETED: 'deleted'
+};
+
+/**
+ * Presence types
+ */
+const PresenceTypes = {
+    UNAVAILABLE: 'unavailable',
+    AVAILABLE: 'available',
+    COMPOSING: 'composing',
+    RECORDING: 'recording',
+    PAUSED: 'paused'
+};
+
+/**
+ * Media types
+ */
+const MediaTypes = {
+    IMAGE: 'image',
+    VIDEO: 'video',
+    AUDIO: 'audio',
+    DOCUMENT: 'document',
+    STICKER: 'sticker',
+    GIF: 'gif',
+    VOICE: 'voice'
+};
+
+/**
+ * Group roles
+ */
+const GroupRoles = {
+    ADMIN: 'admin',
+    MEMBER: 'member',
+    SUPER_ADMIN: 'superadmin'
+};
+
+/**
+ * Chat actions
+ */
+const ChatActions = {
+    ARCHIVE: 'archive',
+    UNARCHIVE: 'unarchive',
+    PIN: 'pin',
+    UNPIN: 'unpin',
+    MUTE: 'mute',
+    UNMUTE: 'unmute',
+    BLOCK: 'block',
+    UNBLOCK: 'unblock',
+    DELETE: 'delete',
+    CLEAR: 'clear'
+};
+
+/**
+ * Authentication methods
+ */
+const AuthMethods = {
+    QR_CODE: 'qr_code',
+    PHONE_VERIFICATION: 'phone_verification',
+    EMAIL_VERIFICATION: 'email_verification',
+    BACKUP_CODES: 'backup_codes',
+    BIOMETRIC: 'biometric',
+    MULTI_DEVICE_PAIRING: 'multi_device_pairing',
+    SESSION_RESTORE: 'session_restore'
+};
+
+module.exports = {
+    MessageTypes,
+    ChatTypes,
+    AuthStrategies,
+    ConnectionStates,
+    ErrorTypes,
+    EventTypes,
+    MessageStatus,
+    PresenceTypes,
+    MediaTypes,
+    GroupRoles,
+    ChatActions,
+    AuthMethods
+};
