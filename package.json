@@ -5,6 +5,7 @@
   "main": "lib/index.js",
   "scripts": {
     "postinstall": "npx puppeteer browsers install chrome",
+    "install-chrome": "npx puppeteer browsers install chrome",
     "dev": "node examples/advanced-bot.js",
     "start": "node examples/advanced-bot.js",
     "basic": "node examples/basic-bot.js"
