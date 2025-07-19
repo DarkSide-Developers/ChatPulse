@@ -8,21 +8,17 @@
  * © 2025 DarkSide Developer Team. All rights reserved.
  */
 
-const { ChatPulse } = require('../lib');
+const { ChatPulse } = require('../src');
 require('dotenv').config();
 
 /**
  * Basic ChatPulse Bot Example
- * Demonstrates core functionality and basic usage
  */
 
-// Initialize ChatPulse with configuration
+// Initialize ChatPulse
 const client = new ChatPulse({
     sessionName: 'basic-bot',
-    headless: process.env.HEADLESS === 'true',
-    autoReconnect: true,
-    reconnectInterval: 30000,
-    language: 'en'
+    autoReconnect: true
 });
 
 // Event handlers
@@ -81,12 +77,9 @@ client.on('message', async (message) => {
 • \`!info\` - Get chat information
 • \`!help\` - Show this help message
 
-🔌 *Plugin Commands:*
-Use \`!commands\` to see available plugin commands
-
 💡 *Tips:*
 • Send any message to interact with the bot
-• Use plugins for advanced functionality
+• Use echo command to test functionality
         `.trim();
         
         await client.sendMessage(message.from, helpText);

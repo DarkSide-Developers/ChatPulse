@@ -2,37 +2,60 @@
 
 <div align="center">
 
-![ChatPulse Logo](https://www.cm.com/cdn/web/csharp-api.svg)
-
-**A powerful, modular, and production-ready WhatsApp Web automation library**
+**A powerful and feature-rich WhatsApp Web automation library**
 
 [![npm version](https://badge.fury.io/js/chatpulse.svg)](https://badge.fury.io/js/chatpulse)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](https://nodejs.org/)
-[![GitHub Issues](https://img.shields.io/github/issues/DarkSide-Developers/ChatPulse)](https://github.com/DarkSide-Developers/ChatPulse/issues)
-[![GitHub Stars](https://img.shields.io/github/stars/DarkSide-Developers/ChatPulse)](https://github.com/DarkSide-Developers/ChatPulse/stargazers)
 
 </div>
 
 ## 🚀 Features
 
-### 🔥 **2025 Modern Features**
-- **🚀 Advanced Connection Methods** - QR code, pairing code, multi-device, auto-detection
-- **⚡ Real-time WebSocket** - Live message updates, presence, typing indicators
-- **📱 Multi-Device Support** - WhatsApp's latest multi-device architecture
-- **🎯 Modern Message Types** - Polls, reactions, ephemeral messages, editing, forwarding
-- **🏢 Business Features** - Products, catalogs, payments, orders, analytics
-- **👥 Advanced Group Management** - Complete admin controls and participant management
-- **🔌 Plugin-Based Architecture** - Modular command and event handling system
-- **📱 Multi-Session Support** - Handle multiple WhatsApp accounts simultaneously
-- **🔐 Secure Session Management** - Encrypted session storage with auto-restore
-- **📨 Rich Message Types** - Text, media, buttons, lists, contacts, locations
-- **🎯 Advanced Event System** - Comprehensive event handling with priorities
-- **🌐 Multi-Language Support** - Built-in i18n support (English/Sinhala)
-- **📊 Media Processing** - Image, video, audio, document, sticker handling
-- **🔄 Auto-Reconnection** - Resilient connection management with fallback strategies
-- **📝 Comprehensive Logging** - Advanced logging with file output and rotation
-- **🎨 QR Code Management** - Multiple QR code output formats and pairing codes
+### 🔐 **Authentication Options**
+- **QR Code Authentication** - Traditional QR scanning
+- **Pairing Code Authentication** - Phone number linking
+- **Session Management** - Secure session storage and restoration
+
+### 💬 **Advanced Messaging**
+- **Text Messages** - Rich text with markdown support
+- **Button Messages** - Interactive button interfaces
+- **List Messages** - Organized menu selections
+- **Poll Messages** - Create polls with multiple options
+- **Contact Sharing** - Share contact information
+- **Location Sharing** - Send GPS coordinates
+- **Message Reactions** - React with emojis
+- **Message Editing** - Edit sent messages
+- **Message Forwarding** - Forward messages between chats
+- **Message Deletion** - Delete for self or everyone
+
+### 📎 **Media Handling**
+- **Images, Videos, Audio** - Full media support
+- **Documents** - Send any file type
+- **Stickers** - Send and create custom stickers
+- **Voice Messages** - Send voice recordings
+- **Media Download** - Download received media
+- **Media Info** - Get media metadata
+
+### 👥 **Group Management**
+- **Create Groups** - Create new WhatsApp groups
+- **Add/Remove Participants** - Manage group members
+- **Group Settings** - Update description, settings
+- **Admin Functions** - Full admin capabilities
+
+### 🛠️ **Chat Management**
+- **Archive/Unarchive** - Organize chats
+- **Pin/Unpin** - Pin important chats
+- **Mute/Unmute** - Control notifications
+- **Block/Unblock** - Manage contacts
+- **Chat Presence** - Set typing, recording status
+
+### 📊 **Information & Monitoring**
+- **Chat Information** - Get detailed chat data
+- **Contact Management** - Access contact list
+- **Device Information** - Monitor device status
+- **Presence Updates** - Track online status
+- **Call Monitoring** - Handle incoming calls
 
 ## 📦 Installation
 
@@ -42,20 +65,16 @@ npm install chatpulse
 
 ## 🏃‍♂️ Quick Start
 
+### Basic Setup
+
 ```javascript
 const { ChatPulse } = require('chatpulse');
 
-// Initialize ChatPulse
+// Initialize with QR authentication
 const client = new ChatPulse({
     sessionName: 'my-bot',
-    headless: false, // Set to true for production
-    autoReconnect: true,
-    language: 'en'
-});
-
-// Handle incoming messages
-client.on('message', (message) => {
-    console.log(`Received: ${message.body} from ${message.from}`);
+    headless: false,
+    authStrategy: 'qr'
 });
 
 // Handle ready event
@@ -63,681 +82,328 @@ client.on('ready', () => {
     console.log('ChatPulse is ready!');
 });
 
-// Initialize and connect
-client.initializeAdvanced({
-    multiDevice: true,
-    websocket: true,
-    strategy: 'auto' // auto, qr, pairing, multidevice
-}).then(() => {
-    console.log('ChatPulse initialized successfully');
-}).catch(error => {
-    console.error('Failed to initialize:', error);
+// Handle messages
+client.on('message', (message) => {
+    console.log(`Received: ${message.body}`);
+});
+
+// Initialize
+client.initialize();
+```
+
+### Pairing Code Authentication
+
+```javascript
+const client = new ChatPulse({
+    sessionName: 'my-bot',
+    authStrategy: 'pairing',
+    pairingNumber: '+1234567890' // Your phone number
+});
+
+client.on('pairing_code', (code) => {
+    console.log(`Pairing Code: ${code}`);
+    // Enter this code in your WhatsApp mobile app
 });
 ```
 
-## 📖 Documentation
+## 📖 Advanced Usage
 
-### Basic Usage
-
-#### Advanced Initialization
+### Button Messages
 
 ```javascript
-// Initialize with modern features
-await client.initializeAdvanced({
-    multiDevice: true,        // Enable multi-device support
-    websocket: true,          // Enable real-time WebSocket
-    strategy: 'auto',         // Connection strategy: auto, qr, pairing
-    timeout: 120000,          // Connection timeout
-    enableFallback: true      // Enable fallback strategies
-});
-```
-
-#### Sending Messages
-
-```javascript
-// Send text message
-await client.sendMessage('1234567890@c.us', 'Hello World!');
-
-// Send message with options
-await client.sendMessage('1234567890@c.us', 'Hello!', {
-    linkPreview: false,
-    mentions: ['1234567890@c.us'],
-    ephemeral: true,          // Disappearing message
-    ephemeralDuration: 86400  // 24 hours
-});
-
-// Send poll
-await client.messageHandler.sendPoll(
-    '1234567890@c.us',
-    'What\'s your favorite color?',
-    ['Red', 'Blue', 'Green'],
-    { multipleAnswers: false }
-);
-
-// Send location
-await client.messageHandler.sendLocation(
-    '1234567890@c.us',
-    40.7128, -74.0060,
-    { name: 'New York City' }
-);
-
-// Send contact
-await client.messageHandler.sendContact(
-    '1234567890@c.us',
-    {
-        name: 'John Doe',
-        phone: '+1234567890',
-        email: 'john@example.com'
-    }
-);
-
-// React to message
-await client.messageHandler.reactToMessage(messageId, '👍');
-
-// Edit message
-await client.messageHandler.editMessage(messageId, 'Updated text');
-
-// Forward message
-await client.messageHandler.forwardMessage(messageId, ['chat1', 'chat2']);
-```
-
-#### Modern Message Features
-
-```javascript
-// Send ephemeral (disappearing) message
-await client.messageHandler.sendEphemeralMessage(
-    '1234567890@c.us',
-    'This message will disappear',
-    604800 // 7 days
-);
-
-// Pin/unpin message
-await client.messageHandler.pinMessage(messageId, true);
-
-// Star/unstar message
-await client.messageHandler.starMessage(messageId, true);
-```
-
-#### Business Features
-
-```javascript
-// Send product
-await client.messageHandler.sendProduct('1234567890@c.us', {
-    id: 'prod_123',
-    businessJid: 'business@c.us',
-    title: 'Amazing Product',
-    description: 'Product description',
-    price: 99.99,
-    currency: 'USD'
-});
-
-// Send payment request
-await client.messageHandler.sendPayment('1234567890@c.us', {
-    amount: 50.00,
-    currency: 'USD',
-    note: 'Payment for services'
-});
-
-// Get business catalog
-const catalog = await client.businessHandler.getBusinessCatalog('business@c.us');
-});
-```
-
-#### Sending Media
-
-```javascript
-// Send image
-await client.sendMedia('1234567890@c.us', './image.jpg', {
-    caption: 'Check this out!'
-});
-
-// Send document
-await client.sendMedia('1234567890@c.us', './document.pdf', {
-    filename: 'Important Document.pdf'
-});
-
-// Send sticker
-await client.mediaHandler.sendSticker('1234567890@c.us', './image.png');
-
-// Send voice note
-await client.mediaHandler.sendVoiceNote('1234567890@c.us', './audio.mp3');
-
-// Download media from message
-const filePath = await client.mediaHandler.downloadMedia(message, './downloads/');
-```
-
-#### Interactive Messages
-
-```javascript
-// Send button message
-await client.messageHandler.sendButtonMessage(
-    '1234567890@c.us',
-    'Choose an option:',
+await client.sendButtonMessage(chatId, 
+    '🎛️ Choose an option:', 
     [
-        { id: 'btn1', text: 'Option 1' },
-        { id: 'btn2', text: 'Option 2' }
-    ]
+        { id: 'btn1', text: '📊 Get Info' },
+        { id: 'btn2', text: '📱 Status' },
+        { id: 'btn3', text: '🎮 Games' }
+    ],
+    { footer: 'ChatPulse Bot' }
 );
 
-// Send list message
-await client.messageHandler.sendListMessage(
-    '1234567890@c.us',
-    'Select from menu:',
-    'View Menu',
+// Handle button responses
+client.on('button_response', (message) => {
+    console.log(`Button pressed: ${message.selectedButtonId}`);
+});
+```
+
+### List Messages
+
+```javascript
+await client.sendListMessage(chatId,
+    '📋 Bot Menu',
+    'Select Option',
     [
         {
-            title: 'Main Dishes',
+            title: '🤖 Bot Commands',
             rows: [
-                { id: 'dish1', title: 'Pizza', description: 'Delicious pizza' },
-                { id: 'dish2', title: 'Burger', description: 'Tasty burger' }
+                { id: 'help', title: 'Help', description: 'Show commands' },
+                { id: 'info', title: 'Info', description: 'Bot information' }
+            ]
+        },
+        {
+            title: '🎮 Entertainment',
+            rows: [
+                { id: 'joke', title: 'Joke', description: 'Random joke' },
+                { id: 'quote', title: 'Quote', description: 'Inspiration' }
             ]
         }
     ]
 );
+
+// Handle list responses
+client.on('list_response', (message) => {
+    console.log(`Selected: ${message.selectedRowId}`);
+});
 ```
 
-#### Group Management
+### Poll Messages
+
+```javascript
+await client.sendPoll(chatId,
+    '🗳️ What\'s your favorite language?',
+    ['JavaScript', 'Python', 'Java', 'C++'],
+    { multipleAnswers: false }
+);
+
+// Handle poll updates
+client.on('poll_update', (message) => {
+    console.log('Poll update:', message);
+});
+```
+
+### Media Messages
+
+```javascript
+// Send image with caption
+await client.sendMedia(chatId, './image.jpg', {
+    caption: 'Check this out! 📸',
+    mentions: ['1234567890@c.us']
+});
+
+// Send sticker
+await client.sendSticker(chatId, './sticker.webp');
+
+// Send voice message
+await client.sendVoiceMessage(chatId, './audio.mp3', {
+    duration: 30
+});
+
+// Download media
+const mediaPath = await client.mediaHandler.downloadMedia(message);
+console.log(`Media saved to: ${mediaPath}`);
+```
+
+### Contact & Location
+
+```javascript
+// Send contact
+await client.sendContact(chatId, {
+    name: 'John Doe',
+    number: '+1234567890',
+    organization: 'Company Inc.',
+    email: 'john@example.com'
+});
+
+// Send location
+await client.sendLocation(chatId, 
+    40.7128, -74.0060, 
+    '📍 New York City'
+);
+```
+
+### Message Management
+
+```javascript
+// React to message
+await client.reactToMessage(messageId, '❤️');
+
+// Edit message
+await client.editMessage(messageId, 'Updated text');
+
+// Delete message
+await client.deleteMessage(messageId, true); // true = for everyone
+
+// Forward message
+await client.forwardMessage(targetChatId, messageId);
+
+// Star message
+await client.starMessage(messageId, true);
+```
+
+### Chat Management
+
+```javascript
+// Archive chat
+await client.archiveChat(chatId, true);
+
+// Pin chat
+await client.pinChat(chatId, true);
+
+// Mute chat (1 hour)
+await client.muteChat(chatId, 3600000);
+
+// Set typing indicator
+await client.setChatPresence(chatId, 'typing');
+
+// Block contact
+await client.blockContact(contactId, true);
+```
+
+### Group Management
 
 ```javascript
 // Create group
-const group = await client.groupHandler.createGroup(
-    'My Group',
-    ['1234567890', '0987654321'],
-    { description: 'Group description' }
-);
-
-// Add participants
-await client.groupHandler.addParticipants(groupId, ['1111111111']);
-
-// Remove participants
-await client.groupHandler.removeParticipants(groupId, ['1111111111']);
-
-// Promote to admin
-await client.groupHandler.promoteParticipants(groupId, ['1234567890']);
-
-// Update group settings
-await client.groupHandler.updateGroupSettings(groupId, {
-    name: 'New Group Name',
-    description: 'New description',
-    restrictedMode: true
-});
-
-// Get group invite link
-const inviteLink = await client.groupHandler.getGroupInviteLink(groupId);
-
-// Join group by invite
-await client.groupHandler.joinGroupByInvite(inviteLink);
-```
-
-#### Real-time Features
-
-```javascript
-// Subscribe to presence updates
-await client.wsHandler.subscribeToPresence('1234567890@c.us');
-
-// Send typing indicator
-await client.wsHandler.sendTyping('1234567890@c.us', true);
-
-// Mark message as read
-await client.wsHandler.markAsRead(messageId, chatId);
-
-// Handle real-time events
-client.on('presence_update', (presence) => {
-    console.log(`${presence.from} is ${presence.status}`);
-});
-
-client.on('typing', (typing) => {
-    console.log(`${typing.from} is typing...`);
-});
-
-client.on('message_realtime', (message) => {
-    console.log('Real-time message received');
-});
-```
-
-### Plugin System
-
-ChatPulse features a powerful plugin system for extending functionality.
-
-#### Creating a Plugin
-
-```javascript
-// plugins/echo.js
-class EchoPlugin {
-    constructor(client) {
-        this.client = client;
-        this.name = 'echo';
-        this.version = '1.0.0';
-        this.description = 'Echo messages back to sender';
-        this.author = 'Your Name';
-        
-        this.commands = [
-            {
-                name: 'echo',
-                description: 'Echo a message',
-                usage: '!echo <message>',
-                aliases: ['repeat'],
-                handler: this.handleEcho
-            }
-        ];
-        
-        this.events = {
-            message: this.onMessage
-        };
-    }
-    
-    async handleEcho(context) {
-        const { args, reply } = context;
-        const message = args.join(' ');
-        
-        if (!message) {
-            return reply('Please provide a message to echo!');
-        }
-        
-        await reply(`Echo: ${message}`);
-    }
-    
-    async onMessage(message) {
-        // Handle all incoming messages
-        console.log(`Message received: ${message.body}`);
-    }
-    
-    async initialize() {
-        console.log('Echo plugin initialized');
-    }
-    
-    async cleanup() {
-        console.log('Echo plugin cleaned up');
-    }
-}
-
-module.exports = EchoPlugin;
-```
-
-#### Loading Plugins
-
-Plugins are automatically loaded from the `plugins/` directory when ChatPulse starts.
-
-```javascript
-// Manually load a plugin
-await client.pluginManager.loadPlugin('echo.js');
-
-// Get loaded plugins
-const plugins = client.pluginManager.getLoadedPlugins();
-
-// Get available commands
-const commands = client.pluginManager.getAvailableCommands();
-```
-
-### Advanced Connection Methods
-
-```javascript
-// Auto-detect best connection method
-await client.connectionManager.connect('auto');
-
-// Use specific connection strategy
-await client.connectionManager.connect('pairing'); // or 'qr', 'multidevice'
-
-// Handle pairing code
-client.on('pairing_code', (code) => {
-    console.log(`Pairing code: ${code}`);
-    // Display code to user for pairing
-});
-
-// Handle device linking
-client.on('device_linked', (device) => {
-    console.log(`Device linked: ${device.name}`);
-});
-```
-
-### Message Formatting
-
-```javascript
-const { MessageFormatter } = require('chatpulse');
-
-// Rich text formatting
-const formatted = MessageFormatter.multiLine([
-    { text: 'Bold Title', bold: true },
-    { text: 'Italic subtitle', italic: true },
-    { text: 'Strikethrough text', strikethrough: true },
-    { text: 'Monospace code', monospace: true }
+const group = await client.createGroup('My Group', [
+    '1234567890@c.us',
+    '0987654321@c.us'
 ]);
 
-// Create tables
-const table = MessageFormatter.table(
-    ['Name', 'Status', 'Score'],
-    [
-        ['Alice', 'Active', '95'],
-        ['Bob', 'Inactive', '87']
-    ]
-);
+// Add participants
+await client.addParticipants(groupId, ['1111111111@c.us']);
 
-// Progress bars
-const progress = MessageFormatter.progressBar(75, 20);
+// Remove participants
+await client.removeParticipants(groupId, ['1111111111@c.us']);
 
-// Notifications
-const notification = MessageFormatter.notification(
-    'success',
-    'Task Complete',
-    'Your task has been completed successfully!'
-);
+// Set group description
+await client.setGroupDescription(groupId, 'Welcome to our group!');
 ```
 
-### Session Management
+### Information Retrieval
 
 ```javascript
-// Check if session exists
-const exists = await client.sessionManager.sessionExists();
+// Get chat info
+const chatInfo = await client.getChatInfo(chatId);
+console.log(chatInfo);
 
-// Create new session
-await client.sessionManager.createSession();
+// Get all chats
+const chats = await client.getChats();
 
-// Delete session
-await client.sessionManager.deleteSession();
+// Get contacts
+const contacts = await client.getContacts();
 
-// List all sessions
-const sessions = await client.sessionManager.listSessions();
+// Get device info
+const deviceInfo = await client.getDeviceInfo();
 
-// Backup session
-await client.sessionManager.backupSession('./backup.zip');
-
-// Restore session
-await client.sessionManager.restoreSession('./backup.zip');
+// Get profile picture
+const profileUrl = await client.getProfilePicUrl(contactId);
 ```
 
-### Multi-Device Support
-
-```javascript
-// Initialize multi-device
-await client.multiDevice.initialize();
-
-// Link new device
-const deviceId = await client.multiDevice.linkDevice({
-    name: 'My Computer',
-    platform: 'web'
-});
-
-// Get linked devices
-const devices = client.multiDevice.getLinkedDevices();
-
-// Sync data across devices
-await client.multiDevice.syncData({
-    contacts: contactList,
-    settings: userSettings
-});
-```
-
-### Event Handling
-
-```javascript
-// Basic event handling
-client.on('message', (message) => {
-    console.log('New message:', message);
-});
-
-// Event with priority
-client.on('message', (message) => {
-    console.log('High priority handler');
-}, { priority: 10 });
-
-// One-time event
-client.once('ready', () => {
-    console.log('ChatPulse is ready!');
-});
-
-// Event with namespace
-client.on('message', handler, { namespace: 'myPlugin' });
-
-// Remove all listeners for namespace
-client.removeAllListeners(null, 'myPlugin');
-```
-
-### Available Events
-
-- `ready` - ChatPulse is ready to use
-- `connected` - Connected to WhatsApp Web
-- `disconnected` - Disconnected from WhatsApp Web
-- `message` - New message received
-- `message_sent` - Message sent successfully
-- `media_sent` - Media sent successfully
-- `qr_generated` - QR code generated
-- `qr_updated` - QR code updated
-- `qr_cleared` - QR code cleared
-- `pairing_code` - Pairing code generated
-- `device_linked` - New device linked
-- `device_unlinked` - Device unlinked
-- `websocket_connected` - WebSocket connected
-- `websocket_disconnected` - WebSocket disconnected
-- `message_realtime` - Real-time message received
-- `presence_update` - Contact presence updated
-- `typing` - Typing indicator received
-- `message_receipt` - Message receipt received
-- `message_edited` - Message edited
-- `message_forwarded` - Message forwarded
-- `group_created` - Group created
-- `participants_added` - Participants added to group
-- `participants_removed` - Participants removed from group
-- `error` - Error occurred
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file in your project root:
-
-```env
-# Session Configuration
-SESSION_ENCRYPTION_KEY=your-encryption-key-here
-COMMAND_PREFIX=!
-
-# Connection Configuration
-CONNECTION_STRATEGY=auto
-CONNECTION_TIMEOUT=120000
-ENABLE_MULTIDEVICE=true
-ENABLE_WEBSOCKET=true
-
-# Logging Configuration
-LOG_LEVEL=info
-LOG_TO_FILE=true
-LOG_DIR=./logs
-
-# WhatsApp Configuration
-HEADLESS=true
-AUTO_RECONNECT=true
-RECONNECT_INTERVAL=30000
-```
-
-### Advanced Configuration
+## ⚙️ Configuration Options
 
 ```javascript
 const client = new ChatPulse({
-    sessionName: 'advanced-bot',
-    headless: true,
-    userDataDir: './custom-sessions',
-    autoReconnect: true,
-    reconnectInterval: 30000,
-    language: 'en',
-    multiDevice: true,
-    websocket: true,
-    puppeteerOptions: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    sessionName: 'my-bot',              // Session identifier
+    headless: true,                     // Browser headless mode
+    userDataDir: './sessions',          // Session storage directory
+    autoReconnect: true,                // Auto-reconnection
+    reconnectInterval: 30000,           // Reconnection interval (ms)
+    authStrategy: 'qr',                 // 'qr' or 'pairing'
+    pairingNumber: '+1234567890',       // For pairing auth
+    markOnlineOnConnect: true,          // Mark as online
+    syncFullHistory: false,             // Sync message history
+    puppeteerOptions: {                 // Custom Puppeteer options
+        args: ['--no-sandbox']
     }
 });
 ```
 
-## 🌟 What's New in 2025
+## 🎯 Event System
 
-ChatPulse has been completely rebuilt for 2025 with cutting-edge WhatsApp features:
+```javascript
+// Connection events
+client.on('ready', () => {});
+client.on('connected', () => {});
+client.on('disconnected', () => {});
+client.on('qr_generated', (qrInfo) => {});
+client.on('pairing_code', (code) => {});
 
-### 🚀 **Modern Connection Methods**
-- **Auto-Detection**: Automatically chooses the best connection method
-- **Pairing Codes**: Faster authentication without QR scanning
-- **Multi-Device**: Native support for WhatsApp's multi-device architecture
-- **Fallback Strategies**: Automatic fallback if primary method fails
+// Message events
+client.on('message', (message) => {});
+client.on('message_sent', (result) => {});
+client.on('button_response', (message) => {});
+client.on('list_response', (message) => {});
+client.on('poll_update', (message) => {});
 
-### ⚡ **Real-Time Features**
-- **WebSocket Integration**: Live message updates and presence
-- **Typing Indicators**: Real-time typing status
-- **Presence Updates**: Online/offline status monitoring
-- **Message Receipts**: Delivery and read confirmations
+// Media events
+client.on('media_sent', (result) => {});
+client.on('sticker_sent', (result) => {});
+client.on('voice_sent', (result) => {});
 
-### 🎯 **Advanced Message Types**
-- **Interactive Polls**: Create polls with multiple options
-- **Ephemeral Messages**: Disappearing messages with custom duration
-- **Message Reactions**: React to messages with emojis
-- **Message Editing**: Edit sent messages (within time limit)
-- **Message Forwarding**: Forward messages to multiple chats
-- **Live Locations**: Share real-time location updates
+// Chat events
+client.on('presence_update', (presence) => {});
+client.on('call', (call) => {});
+client.on('group_update', (update) => {});
 
-### 🏢 **Business Features**
-- **Product Catalogs**: Send product listings and catalogs
-- **Payment Requests**: Request payments through WhatsApp
-- **Order Management**: Handle orders and track status
-- **Business Analytics**: Get insights and metrics
-- **Away Messages**: Automated responses during off-hours
-
-### 👥 **Group Management 2.0**
-- **Advanced Admin Controls**: Complete group administration
-- **Participant Management**: Add, remove, promote, demote members
-- **Group Settings**: Control restrictions and announcements
-- **Invite Management**: Generate and revoke invite links
-- **Group Analytics**: Track group activity and engagement
+// Error handling
+client.on('error', (error) => {});
+```
 
 ## 🛠️ Development
 
-### Setting up Development Environment
-
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/DarkSide-Developers/ChatPulse.git
 cd ChatPulse
 
 # Install dependencies
 npm install
 
-# Run in development mode
+# Run advanced example
 npm run dev
 
-# Run tests
-npm test
-
-# Build the project
-npm run build
+# Run basic example
+npm run basic
 ```
 
-### Project Structure
+## 📁 Project Structure
 
 ```
 ChatPulse/
 ├── lib/
 │   ├── core/           # Core ChatPulse functionality
-│   │   ├── ChatPulse.js
-│   │   ├── ConnectionManager.js
-│   │   ├── WebSocketHandler.js
-│   │   └── MultiDeviceHandler.js
-│   ├── handlers/       # Message and event handlers
-│   │   ├── MessageHandler.js
-│   │   ├── GroupHandler.js
-│   │   └── BusinessHandler.js
-│   ├── plugins/        # Plugin management system
+│   ├── handlers/       # Message and media handlers
 │   ├── session/        # Session management
 │   ├── media/          # Media handling
 │   ├── events/         # Event system
 │   ├── utils/          # Utility functions
-│   │   ├── Logger.js
-│   │   ├── QRHandler.js
-│   │   └── MessageFormatter.js
 │   └── index.js        # Main exports
-├── examples/           # Usage examples
-│   ├── basic-bot.js
-│   └── advanced-bot.js
-├── tests/              # Test files
-├── docs/               # Documentation
-├── plugins/            # Default plugins
-│   ├── help.js
-│   ├── system.js
-│   └── advanced.js
+├── examples/
+│   ├── basic-bot.js    # Basic bot example
+│   └── advanced-bot.js # Advanced features example
 └── README.md
 ```
 
 ## 🎯 Use Cases
 
-ChatPulse is perfect for building:
-
-### 🤖 **Chatbots & Automation**
-- Customer service bots
-- Order processing automation
-- FAQ and support systems
-- Notification systems
-
-### 🏢 **Business Solutions**
-- E-commerce integration
-- Payment processing
-- Inventory management
-- Customer relationship management
-
-### 👥 **Community Management**
-- Group moderation bots
-- Event management
-- Announcement systems
-- Member engagement tools
-
-### 📊 **Analytics & Monitoring**
-- Message analytics
-- User engagement tracking
-- Business metrics
-- Performance monitoring
-
-### 🔧 **Custom Applications**
-- Integration with existing systems
-- Workflow automation
-- Data collection and processing
-- Multi-platform messaging
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Guidelines
-
-1. Follow the existing code style
-2. Add tests for new features
-3. Update documentation
-4. Use meaningful commit messages
-5. Create pull requests for review
+- **🤖 Advanced Chatbots** - Interactive bots with buttons and menus
+- **📢 Notification Systems** - Rich notifications with media
+- **🎮 Interactive Applications** - Games and entertainment bots
+- **📊 Business Automation** - Customer service and support
+- **👥 Group Management** - Automated group administration
+- **📱 Multi-device Support** - Cross-platform messaging
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## 👥 Authors & Maintainers
+## 👥 Authors
 
 - **DarkWinzo** - *Lead Developer* - [GitHub](https://github.com/DarkWinzo)
-- **DarkSide Developer Team** - *Organization* - [GitHub](https://github.com/DarkSide-Developers)
+- **DarkSide Developer Team** - [GitHub](https://github.com/DarkSide-Developers)
 
-## 📞 Support & Contact
+## 📞 Support
 
 - **Email**: isurulakshan9998@gmail.com
-- **GitHub Issues**: [Report Issues](https://github.com/DarkSide-Developers/ChatPulse/issues)
-- **GitHub Discussions**: [Join Discussions](https://github.com/DarkSide-Developers/ChatPulse/discussions)
-
-## 🙏 Acknowledgments
-
-- WhatsApp for providing the Web interface
-- Puppeteer team for the excellent browser automation library
-- All contributors and users of ChatPulse
+- **Issues**: [GitHub Issues](https://github.com/DarkSide-Developers/ChatPulse/issues)
 
 ## ⚠️ Disclaimer
 
-This project is not affiliated with, authorized, maintained, sponsored or endorsed by WhatsApp or any of its affiliates or subsidiaries. This is an independent and unofficial software. Use at your own risk.
-
-WhatsApp is a trademark of Meta Platforms, Inc. This project is an unofficial library and is not endorsed by Meta.
+This project is not affiliated with WhatsApp. Use responsibly and in accordance with WhatsApp's Terms of Service.
 
 ---
 
 <div align="center">
-
-**🚀 Ready for 2025 • Built for Scale • Production Ready**
 
 **Made with ❤️ by [DarkSide Developer Team](https://github.com/DarkSide-Developers)**
 
