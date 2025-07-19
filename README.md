@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![ChatPulse Logo](https://via.placeholder.com/200x200/4CAF50/FFFFFF?text=ChatPulse)
+![ChatPulse Logo](https://www.cm.com/cdn/web/csharp-api.svg)
 
 **A powerful, modular, and production-ready WhatsApp Web automation library**
 
