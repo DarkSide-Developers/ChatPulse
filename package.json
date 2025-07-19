@@ -4,6 +4,7 @@
   "description": "Advanced WhatsApp Web API Library - A powerful, modular, and production-ready WhatsApp automation library",
   "main": "lib/index.js",
   "scripts": {
+    "postinstall": "npx puppeteer browsers install chrome",
     "dev": "node examples/basic-bot.js",
     "start": "node examples/basic-bot.js"
   },
