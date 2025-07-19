@@ -60,14 +60,21 @@ class Logger {
         } else {
             // Pretty print for development
             if (process.env.NODE_ENV !== 'production') {
-                loggerConfig.transport = {
-                    target: 'pino-pretty',
-                    options: {
-                        colorize: true,
-                        translateTime: 'SYS:standard',
-                        ignore: 'pid,hostname'
-                    }
-                };
+                try {
+                    // Only use pino-pretty if it's available
+                    require.resolve('pino-pretty');
+                    loggerConfig.transport = {
+                        target: 'pino-pretty',
+                        options: {
+                            colorize: true,
+                            translateTime: 'SYS:standard',
+                            ignore: 'pid,hostname'
+                        }
+                    };
+                } catch (error) {
+                    // pino-pretty not available, use default console output
+                    // No transport needed for basic console output
+                }
             }
         }
 
