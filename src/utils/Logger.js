@@ -53,7 +53,8 @@ class Logger {
                 target: 'pino/file',
                 options: {
                     destination: logFile,
-                    mkdir: true
+                    mkdir: true,
+                    sync: false
                 }
             };
         } else {

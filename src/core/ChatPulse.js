@@ -53,7 +53,11 @@ class ChatPulse extends EventEmitter {
             level: this.options.logLevel || 'info',
             transport: this.options.logToFile ? {
                 target: 'pino/file',
-                options: { destination: `${this.options.logDir}/chatpulse.log` }
+                options: { 
+                    destination: `${this.options.logDir}/chatpulse.log`,
+                    mkdir: true,
+                    sync: false
+                }
             } : undefined
         });
         
@@ -605,30 +609,12 @@ class ChatPulse extends EventEmitter {
     async _authenticateWithQR() {
         this.logger.info('Starting QR code authentication...');
         
-        // Generate QR code
-        const qrData = this._generateQRData();
+        // Use QRHandler to handle QR generation and authentication
+        await this.qrHandler.handleQRCode();
         
-        // Display QR code in terminal
-        qrTerminal.generate(qrData, { small: true });
-        this.logger.info('QR Code generated. Please scan with your WhatsApp mobile app.');
-        
-        this.emit(EventTypes.QR_GENERATED, { data: qrData, terminal: true });
-        
-        // Wait for authentication
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new AuthenticationError('QR authentication timeout'));
-            }, this.options.authTimeout || 120000);
-            
-            // Simulate authentication after delay
-            setTimeout(() => {
-                clearTimeout(timeout);
-                this._setState('authenticated', true);
-                this.emit(EventTypes.AUTHENTICATED);
-                this.logger.info('QR authentication successful');
-                resolve(true);
-            }, 10000); // 10 second simulation
-        });
+        this._setState('authenticated', true);
+        this.emit(EventTypes.AUTHENTICATED);
+        this.logger.info('QR authentication successful');
     }
 
     /**
