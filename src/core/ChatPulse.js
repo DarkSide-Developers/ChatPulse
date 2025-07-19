@@ -51,14 +51,8 @@ class ChatPulse extends EventEmitter {
         this.logger = pino({
             name: 'ChatPulse',
             level: this.options.logLevel || 'info',
-            transport: this.options.logToFile ? {
-                target: 'pino/file',
-                options: { 
-                    destination: `${this.options.logDir}/chatpulse.log`,
-                    mkdir: true,
-                    sync: false
-                }
-            } : undefined
+            // Disable file transport to prevent worker errors
+            // File logging can be enabled separately if needed
         });
         
         // Initialize core components

@@ -45,18 +45,9 @@ class Logger {
 
         // Setup file transport if enabled
         if (this.options.logToFile) {
-            this._ensureLogDir();
-            
-            const logFile = path.join(this.options.logDir, `${this.name.toLowerCase()}.log`);
-            
-            loggerConfig.transport = {
-                target: 'pino/file',
-                options: {
-                    destination: logFile,
-                    mkdir: true,
-                    sync: false
-                }
-            };
+            // Disable file transport to prevent worker thread issues
+            // Use console logging instead
+            this.options.logToFile = false;
         } else {
             // Pretty print for development
             if (process.env.NODE_ENV !== 'production') {
