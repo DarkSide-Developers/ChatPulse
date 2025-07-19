@@ -9,7 +9,8 @@
  */
 
 const { Logger } = require('../utils/Logger');
-const { ChatPulseError, ErrorTypes } = require('./ChatPulseError');
+const { ChatPulseError } = require('./ChatPulseError');
+const { ErrorTypes } = require('../types');
 
 /**
  * Centralized error handling and recovery system
