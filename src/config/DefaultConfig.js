@@ -1085,7 +1085,7 @@ class ChatPulse extends EventEmitter {
             });
             
         } catch (error) {
-            this.logger.error('Failed to setup message monitoring:', error);
+            this.logger.error('Error setting up message monitoring:', error);
         }
     }
 
@@ -1096,26 +1096,13 @@ class ChatPulse extends EventEmitter {
         try {
             // Parse message data
             let message;
-            let parseError = null;
-            
             try {
-                if (typeof messageData === 'string') {
-                    message = JSON.parse(messageData);
-                } else if (Buffer.isBuffer(messageData)) {
-                    // Handle binary protocol buffer data
-                    message = this.protocolHandler.parseMessage(messageData);
-                } else {
-                    message = messageData;
-                }
-            } catch (error) {
-                parseError = error;
-                this.logger.warn('Failed to parse incoming message:', error);
-                
-                // Create error message object
+                message = this.protocolHandler.parseMessage(messageData);
+            } catch (parseError) {
+                this.logger.warn('Failed to parse incoming message:', parseError);
                 message = {
-                    type: 'parse_error',
-                    error: error.message,
-                    rawData: messageData,
+                    type: 'unknown',
+                    data: messageData,
                     timestamp: Date.now(),
                     parseError: parseError.message
                 };
