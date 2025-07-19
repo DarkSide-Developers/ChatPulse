@@ -879,11 +879,6 @@ class ChatPulse extends EventEmitter {
      */
     async _displayQRCode(qrData) {
         try {
-            // Validate QR data
-            if (!qrData || typeof qrData !== 'string') {
-                throw new AuthenticationError('Invalid QR data provided', 'INVALID_QR_DATA');
-            }
-            
             // Display in terminal
             if (qrData.startsWith('data:image')) {
                 // Handle data URL
@@ -891,12 +886,8 @@ class ChatPulse extends EventEmitter {
                 console.log('\n📱 Scan the QR code above with your WhatsApp mobile app\n');
             } else {
                 // Display QR in terminal
-                console.log('\n📱 Scan this QR code with your WhatsApp mobile app:\n');
-                qrTerminal.generate(qrData, { 
-                    small: true,
-                    errorCorrectionLevel: 'M'
-                });
-                console.log('\n⏰ QR code expires in 30 seconds. Please scan quickly!\n');
+                qrTerminal.generate(qrData, { small: true });
+                console.log('\n📱 Scan the QR code above with your WhatsApp mobile app\n');
             }
             
             // Save QR code as image
@@ -1088,6 +1079,30 @@ class ChatPulse extends EventEmitter {
                 }
             });
             
+            // Expose message handler to page
+            await this.page.exposeFunction('chatPulseMessageReceived', (messageData) => {
+                this._handleIncomingMessage(messageData);
+            });
+            
+        } catch (error) {
+            this.logger.error('Error setting up message monitoring:', error);
+        }
+    }
+
+    /**
+     * Handle incoming message
+     */
+    async _handleIncomingMessage(messageData) {
+        try {
+            // Parse message data
+            let message;
+            try {
+                message = this.protocolHandler.parseMessage(messageData);
+            } catch (parseError) {
+                this.logger.warn('Failed to parse incoming message:', parseError);
+                message = {
+                    type: 'unknown',
+                    data: messageData,
                     timestamp: Date.now(),
                     parseError: parseError.message
                 };

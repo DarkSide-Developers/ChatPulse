@@ -1080,48 +1080,29 @@ class ChatPulse extends EventEmitter {
             });
             
             // Expose message handler to page
-            await this.page.exposeFunction('chatPulseMessageReceived', (messageElement) => {
-                // Process message in Node.js context
-                this._handlePageMessage(messageElement);
+            await this.page.exposeFunction('chatPulseMessageReceived', (messageData) => {
+                this._handleIncomingMessage(messageData);
             });
             
         } catch (error) {
-            this.logger.error('Failed to setup message monitoring:', error);
+            this.logger.error('Error setting up message monitoring:', error);
         }
     }
 
     /**
-     * Handle WebSocket message
+     * Handle incoming message
      */
-    async _handleWebSocketMessage(data) {
+    async _handleIncomingMessage(messageData) {
         try {
+            // Parse message data
             let message;
-            let parseError;
-            
-            // Try to parse the message
             try {
-                if (Buffer.isBuffer(data)) {
-                    // Handle binary protobuf data
-                    if (this.protocolRoot) {
-                        const WAMessage = this.protocolRoot.lookupType('WAMessage');
-                        message = WAMessage.decode(data);
-                    } else {
-                        // Fallback to JSON parsing
-                        message = JSON.parse(data.toString());
-                    }
-                } else if (typeof data === 'string') {
-                    message = JSON.parse(data);
-                } else {
-                    message = data;
-                }
-            } catch (error) {
-                parseError = error;
-                this.logger.warn('Failed to parse WebSocket message:', error);
-                
-                // Create a fallback message object
+                message = this.protocolHandler.parseMessage(messageData);
+            } catch (parseError) {
+                this.logger.warn('Failed to parse incoming message:', parseError);
                 message = {
                     type: 'unknown',
-                    data: data,
+                    data: messageData,
                     timestamp: Date.now(),
                     parseError: parseError.message
                 };

@@ -1085,7 +1085,7 @@ class ChatPulse extends EventEmitter {
             });
             
         } catch (error) {
-            this.logger.error('Failed to setup message monitoring:', error);
+            this.logger.error('Error setting up message monitoring:', error);
         }
     }
 
@@ -1097,7 +1097,7 @@ class ChatPulse extends EventEmitter {
             // Parse message data
             let message;
             try {
-                message = typeof messageData === 'string' ? JSON.parse(messageData) : messageData;
+                message = this.protocolHandler.parseMessage(messageData);
             } catch (parseError) {
                 this.logger.warn('Failed to parse incoming message:', parseError);
                 message = {
