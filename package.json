@@ -1,0 +1,85 @@
+{
+  "name": "chatpulse",
+  "version": "1.0.0",
+  "description": "Advanced WhatsApp Web API Library - A powerful, modular, and production-ready WhatsApp automation library",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "dev": "node examples/basic-bot.js",
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint lib/**/*.js",
+    "format": "prettier --write lib/**/*.js",
+    "start": "node lib/index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "whatsapp-web",
+    "whatsapp-api",
+    "whatsapp-bot",
+    "automation",
+    "messaging",
+    "chatbot",
+    "puppeteer",
+    "websocket"
+  ],
+  "author": {
+    "name": "DarkWinzo",
+    "email": "isurulakshan9998@gmail.com",
+    "url": "https://github.com/DarkWinzo"
+  },
+  "organization": {
+    "name": "DarkSide Developer Team",
+    "url": "https://github.com/DarkSide-Developers"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DarkSide-Developers/ChatPulse.git"
+  },
+  "homepage": "https://github.com/DarkSide-Developers/ChatPulse#readme",
+  "bugs": {
+    "url": "https://github.com/DarkSide-Developers/ChatPulse/issues",
+    "email": "isurulakshan9998@gmail.com"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "puppeteer": "^21.6.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "puppeteer-extra-plugin-adblocker": "^2.13.6",
+    "qrcode": "^1.5.3",
+    "qrcode-terminal": "^0.12.0",
+    "ws": "^8.14.2",
+    "fs-extra": "^11.2.0",
+    "crypto-js": "^4.2.0",
+    "mime-types": "^2.1.35",
+    "sharp": "^0.33.1",
+    "dotenv": "^16.3.1",
+    "chalk": "^4.1.2",
+    "moment": "^2.29.4",
+    "axios": "^1.6.2",
+    "form-data": "^4.0.0",
+    "node-fetch": "^3.3.2",
+    "uuid": "^9.0.1",
+    "jimp": "^0.22.10",
+    "fluent-ffmpeg": "^2.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3",
+    "jest": "^29.7.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1",
+    "nodemon": "^3.0.2"
+  },
+  "files": [
+    "lib/",
+    "examples/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ]
+}
