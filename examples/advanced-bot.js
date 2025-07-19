@@ -18,25 +18,26 @@ require('dotenv').config();
 // Initialize ChatPulse with advanced options
 const client = new ChatPulse({
     sessionName: 'advanced-bot',
-    headless: true,
     autoReconnect: true,
     authStrategy: 'qr', // or 'pairing'
     pairingNumber: process.env.PAIRING_NUMBER || null,
     markOnlineOnConnect: true,
     syncFullHistory: false,
-    // Add browser configuration for WebContainer compatibility
-    puppeteerOptions: {
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu'
-        ]
-    }
+    // Advanced features
+    enableMultiDevice: true,
+    enableE2E: true,
+    enableGroupEvents: true,
+    enablePresenceUpdates: true,
+    enableCallHandling: true,
+    enableStatusUpdates: true,
+    enableBusinessFeatures: true,
+    enableAdvancedMedia: true,
+    enableBulkMessaging: true,
+    enableScheduledMessages: true,
+    enableAutoReply: true,
+    enableChatBackup: true,
+    enableAnalytics: true,
+    rateLimitPerMinute: 60
 });
 
 // Event handlers

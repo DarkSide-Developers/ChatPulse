@@ -18,21 +18,7 @@ require('dotenv').config();
 // Initialize ChatPulse
 const client = new ChatPulse({
     sessionName: 'basic-bot',
-    headless: true,
-    autoReconnect: true,
-    // Add browser configuration for WebContainer compatibility
-    puppeteerOptions: {
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu'
-        ]
-    }
+    autoReconnect: true
 });
 
 // Event handlers
