@@ -9,7 +9,7 @@
  */
 
 const qrcode = require('qrcode');
-const qrcodeTerminal = require('qrcode-terminal');
+const qrTerminal = require('qrcode-terminal');
 const fs = require('fs-extra');
 const path = require('path');
 const { Logger } = require('../utils/Logger');
@@ -57,7 +57,7 @@ class QRHandler {
             };
 
             if (options.terminal !== false) {
-                qrcodeTerminal.generate(qrData, { small: true });
+                qrTerminal.generate(qrData, { small: true });
                 qrInfo.formats.terminal = true;
                 this.logger.info('QR code displayed in terminal');
             }
