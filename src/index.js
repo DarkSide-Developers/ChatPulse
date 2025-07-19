@@ -19,6 +19,9 @@ const { QRHandler } = require('./handlers/QRHandler');
 // Manager exports
 const { SessionManager } = require('./managers/SessionManager');
 
+// WhatsApp Web Client
+const { WhatsAppWebClient } = require('./core/WhatsAppWebClient');
+
 // Utility exports
 const { Logger } = require('./utils/Logger');
 const { InputValidator } = require('./validators/InputValidator');
@@ -59,6 +62,33 @@ const { RateLimiter } = require('./middleware/RateLimiter');
 // Event system exports
 const { EventEmitter } = require('../lib/events/EventEmitter');
 
+// Example bot for quick start
+const exampleBot = async () => {
+    console.log('🚀 Starting ChatPulse Example Bot...');
+    
+    const client = new ChatPulse({
+        sessionName: 'example-bot',
+        autoReconnect: true,
+        authStrategy: 'qr'
+    });
+    
+    client.on('ready', () => {
+        console.log('✅ ChatPulse Bot is ready!');
+    });
+    
+    client.on('qr_generated', (qrInfo) => {
+        console.log('📱 Scan the QR code with your WhatsApp mobile app');
+    });
+    
+    client.on('message', async (message) => {
+        if (message.body === '!ping') {
+            await client.sendMessage(message.from, 'Pong! 🏓');
+        }
+    });
+    
+    await client.initialize();
+};
+
 module.exports = {
     // Main class
     ChatPulse,
@@ -70,6 +100,9 @@ module.exports = {
     
     // Managers
     SessionManager,
+    
+    // WhatsApp Web Client
+    WhatsAppWebClient,
     
     // Utilities
     Logger,
@@ -106,5 +139,13 @@ module.exports = {
     RateLimiter,
     
     // Event system
-    EventEmitter
+    EventEmitter,
+    
+    // Quick start example
+    exampleBot
 };
+
+// If this file is run directly, start the example bot
+if (require.main === module) {
+    exampleBot().catch(console.error);
+}
