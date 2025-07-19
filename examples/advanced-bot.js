@@ -8,7 +8,7 @@
  * © 2025 DarkSide Developer Team. All rights reserved.
  */
 
-const { ChatPulse } = require('../lib');
+const { ChatPulse } = require('../src');
 require('dotenv').config();
 
 /**

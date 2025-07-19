@@ -2,13 +2,13 @@
   "name": "chatpulse",
   "version": "1.0.0",
   "description": "Advanced WhatsApp Web API Library - A powerful, modular, and production-ready WhatsApp automation library",
-  "main": "lib/index.js",
+  "main": "src/index.js",
   "scripts": {
-    "postinstall": "npx puppeteer browsers install chrome",
-    "install-chrome": "npx puppeteer browsers install chrome",
     "dev": "node examples/advanced-bot.js",
     "start": "node examples/advanced-bot.js",
-    "basic": "node examples/basic-bot.js"
+    "basic": "node examples/basic-bot.js",
+    "test": "echo 'Tests not implemented yet'",
+    "lint": "echo 'Linting not implemented yet'"
   },
   "keywords": [
     "whatsapp",

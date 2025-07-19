@@ -1,5 +1,5 @@
 /**
- * ChatPulse - Advanced WhatsApp Web API Library
+ * ChatPulse - Session Manager
  * Developer: DarkWinzo (https://github.com/DarkWinzo)
  * Email: isurulakshan9998@gmail.com
  * Organization: DarkSide Developer Team
@@ -12,28 +12,36 @@ const fs = require('fs-extra');
 const path = require('path');
 const crypto = require('crypto-js');
 const { Logger } = require('../utils/Logger');
+const { SessionError } = require('../errors/ChatPulseError');
 
 /**
- * Manages WhatsApp Web sessions with encryption and multi-session support
- * Provides secure session storage and restoration capabilities
+ * Enhanced session management with better error handling
  */
 class SessionManager {
-    /**
-     * Initialize SessionManager
-     * @param {string} sessionName - Unique session identifier
-     * @param {string} baseDir - Base directory for session storage
-     */
     constructor(sessionName = 'default', baseDir = './sessions') {
         this.sessionName = sessionName;
         this.baseDir = baseDir;
         this.sessionPath = path.join(baseDir, sessionName);
         this.logger = new Logger('SessionManager');
         this.encryptionKey = process.env.SESSION_ENCRYPTION_KEY || this._generateEncryptionKey();
+        this.isInitialized = false;
+    }
+
+    /**
+     * Initialize session manager
+     */
+    async initialize() {
+        try {
+            await fs.ensureDir(this.sessionPath);
+            this.isInitialized = true;
+            this.logger.info(`Session manager initialized: ${this.sessionName}`);
+        } catch (error) {
+            throw new SessionError('Failed to initialize session manager', 'INIT_FAILED', { error });
+        }
     }
 
     /**
      * Get session directory path
-     * @returns {string} Session directory path
      */
     getSessionPath() {
         return this.sessionPath;
@@ -41,10 +49,13 @@ class SessionManager {
 
     /**
      * Check if session exists
-     * @returns {Promise<boolean>} Session existence status
      */
     async sessionExists() {
         try {
+            if (!this.isInitialized) {
+                await this.initialize();
+            }
+            
             const exists = await fs.pathExists(this.sessionPath);
             const hasSessionData = exists && await this._hasValidSessionData();
             
@@ -58,13 +69,15 @@ class SessionManager {
 
     /**
      * Create new session directory
-     * @returns {Promise<boolean>} Creation success status
      */
     async createSession() {
         try {
+            if (!this.isInitialized) {
+                await this.initialize();
+            }
+            
             await fs.ensureDir(this.sessionPath);
             
-            // Create session metadata
             const metadata = {
                 sessionName: this.sessionName,
                 createdAt: new Date().toISOString(),
@@ -77,14 +90,12 @@ class SessionManager {
             this.logger.info(`Session created: ${this.sessionName}`);
             return true;
         } catch (error) {
-            this.logger.error('Failed to create session:', error);
-            return false;
+            throw new SessionError('Failed to create session', 'CREATE_FAILED', { error });
         }
     }
 
     /**
      * Delete session
-     * @returns {Promise<boolean>} Deletion success status
      */
     async deleteSession() {
         try {
@@ -95,25 +106,24 @@ class SessionManager {
             }
             return false;
         } catch (error) {
-            this.logger.error('Failed to delete session:', error);
-            return false;
+            throw new SessionError('Failed to delete session', 'DELETE_FAILED', { error });
         }
     }
 
     /**
      * Save session data with optional encryption
-     * @param {string} key - Data key
-     * @param {*} data - Data to save
-     * @returns {Promise<boolean>} Save success status
      */
     async saveSessionData(key, data) {
         try {
+            if (!this.isInitialized) {
+                await this.initialize();
+            }
+            
             await fs.ensureDir(this.sessionPath);
             
             const filePath = path.join(this.sessionPath, `${key}.json`);
             let dataToSave = JSON.stringify(data, null, 2);
             
-            // Encrypt sensitive data
             if (this._shouldEncrypt(key)) {
                 dataToSave = this._encrypt(dataToSave);
             }
@@ -122,15 +132,12 @@ class SessionManager {
             this.logger.debug(`Session data saved: ${key}`);
             return true;
         } catch (error) {
-            this.logger.error(`Failed to save session data ${key}:`, error);
-            return false;
+            throw new SessionError(`Failed to save session data: ${key}`, 'SAVE_FAILED', { key, error });
         }
     }
 
     /**
      * Load session data with automatic decryption
-     * @param {string} key - Data key
-     * @returns {Promise<*>} Loaded data or null
      */
     async loadSessionData(key) {
         try {
@@ -142,7 +149,6 @@ class SessionManager {
             
             let rawData = await fs.readFile(filePath, 'utf8');
             
-            // Decrypt if necessary
             if (this._shouldEncrypt(key)) {
                 rawData = this._decrypt(rawData);
             }
@@ -151,14 +157,12 @@ class SessionManager {
             this.logger.debug(`Session data loaded: ${key}`);
             return data;
         } catch (error) {
-            this.logger.error(`Failed to load session data ${key}:`, error);
-            return null;
+            throw new SessionError(`Failed to load session data: ${key}`, 'LOAD_FAILED', { key, error });
         }
     }
 
     /**
      * Get session metadata
-     * @returns {Promise<Object|null>} Session metadata
      */
     async getSessionMetadata() {
         return await this.loadSessionData('metadata');
@@ -166,8 +170,6 @@ class SessionManager {
 
     /**
      * Update session metadata
-     * @param {Object} updates - Metadata updates
-     * @returns {Promise<boolean>} Update success status
      */
     async updateSessionMetadata(updates) {
         try {
@@ -180,14 +182,12 @@ class SessionManager {
             
             return await this.saveSessionData('metadata', updatedMetadata);
         } catch (error) {
-            this.logger.error('Failed to update session metadata:', error);
-            return false;
+            throw new SessionError('Failed to update session metadata', 'UPDATE_FAILED', { error });
         }
     }
 
     /**
      * List all available sessions
-     * @returns {Promise<Array>} Array of session names
      */
     async listSessions() {
         try {
@@ -211,17 +211,19 @@ class SessionManager {
             
             return sessions;
         } catch (error) {
-            this.logger.error('Failed to list sessions:', error);
-            return [];
+            throw new SessionError('Failed to list sessions', 'LIST_FAILED', { error });
         }
     }
 
     /**
      * Get session statistics
-     * @returns {Promise<Object>} Session statistics
      */
     async getSessionStats() {
         try {
+            if (!await fs.pathExists(this.sessionPath)) {
+                return null;
+            }
+            
             const stats = await fs.stat(this.sessionPath);
             const files = await fs.readdir(this.sessionPath);
             
@@ -233,20 +235,15 @@ class SessionManager {
                 size: await this._getDirectorySize(this.sessionPath)
             };
         } catch (error) {
-            this.logger.error('Failed to get session stats:', error);
-            return null;
+            throw new SessionError('Failed to get session stats', 'STATS_FAILED', { error });
         }
     }
 
     /**
      * Backup session to a zip file
-     * @param {string} backupPath - Backup file path
-     * @returns {Promise<boolean>} Backup success status
      */
     async backupSession(backupPath) {
         try {
-            // This would require additional dependencies like archiver
-            // For now, we'll copy the session directory
             const backupDir = path.dirname(backupPath);
             await fs.ensureDir(backupDir);
             await fs.copy(this.sessionPath, backupPath);
@@ -254,15 +251,12 @@ class SessionManager {
             this.logger.info(`Session backed up to: ${backupPath}`);
             return true;
         } catch (error) {
-            this.logger.error('Failed to backup session:', error);
-            return false;
+            throw new SessionError('Failed to backup session', 'BACKUP_FAILED', { backupPath, error });
         }
     }
 
     /**
      * Restore session from backup
-     * @param {string} backupPath - Backup file path
-     * @returns {Promise<boolean>} Restore success status
      */
     async restoreSession(backupPath) {
         try {
@@ -270,26 +264,21 @@ class SessionManager {
                 throw new Error('Backup file not found');
             }
             
-            // Remove existing session
             if (await fs.pathExists(this.sessionPath)) {
                 await fs.remove(this.sessionPath);
             }
             
-            // Restore from backup
             await fs.copy(backupPath, this.sessionPath);
             
             this.logger.info(`Session restored from: ${backupPath}`);
             return true;
         } catch (error) {
-            this.logger.error('Failed to restore session:', error);
-            return false;
+            throw new SessionError('Failed to restore session', 'RESTORE_FAILED', { backupPath, error });
         }
     }
 
     /**
      * Check if session has valid data
-     * @returns {Promise<boolean>} Validity status
-     * @private
      */
     async _hasValidSessionData() {
         try {
@@ -304,9 +293,6 @@ class SessionManager {
 
     /**
      * Check if data should be encrypted
-     * @param {string} key - Data key
-     * @returns {boolean} Should encrypt
-     * @private
      */
     _shouldEncrypt(key) {
         const sensitiveKeys = ['auth', 'credentials', 'tokens', 'keys'];
@@ -315,24 +301,18 @@ class SessionManager {
 
     /**
      * Encrypt data
-     * @param {string} data - Data to encrypt
-     * @returns {string} Encrypted data
-     * @private
      */
     _encrypt(data) {
         try {
             return crypto.AES.encrypt(data, this.encryptionKey).toString();
         } catch (error) {
             this.logger.error('Encryption failed:', error);
-            return data; // Return unencrypted data as fallback
+            return data;
         }
     }
 
     /**
      * Decrypt data
-     * @param {string} encryptedData - Encrypted data
-     * @returns {string} Decrypted data
-     * @private
      */
     _decrypt(encryptedData) {
         try {
@@ -340,14 +320,12 @@ class SessionManager {
             return bytes.toString(crypto.enc.Utf8);
         } catch (error) {
             this.logger.error('Decryption failed:', error);
-            return encryptedData; // Return as-is if decryption fails
+            return encryptedData;
         }
     }
 
     /**
      * Generate encryption key
-     * @returns {string} Generated key
-     * @private
      */
     _generateEncryptionKey() {
         return crypto.lib.WordArray.random(256/8).toString();
@@ -355,9 +333,6 @@ class SessionManager {
 
     /**
      * Get directory size recursively
-     * @param {string} dirPath - Directory path
-     * @returns {Promise<number>} Size in bytes
-     * @private
      */
     async _getDirectorySize(dirPath) {
         try {
