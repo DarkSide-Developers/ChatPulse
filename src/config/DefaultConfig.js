@@ -1,263 +1,462 @@
-/**
- * ChatPulse - Default Configuration
- * Developer: DarkWinzo (https://github.com/DarkWinzo)
- * Email: isurulakshan9998@gmail.com
- * Organization: DarkSide Developer Team
- * GitHub: https://github.com/DarkSide-Developers
- * Repository: https://github.com/DarkSide-Developers/ChatPulse
- * © 2025 DarkSide Developer Team. All rights reserved.
- */
-
-const { AuthStrategies } = require('../types');
-
-/**
- * Default configuration for ChatPulse
- */
-const DefaultConfig = {
-    // Session configuration
-    sessionName: 'chatpulse-session',
-    userDataDir: './sessions',
-    restoreSession: true,
-    
-    // Authentication configuration
-    authStrategy: AuthStrategies.QR,
-    authTimeout: 120000, // 2 minutes
-    pairingNumber: null,
-    
-    // Connection configuration
-    autoReconnect: true,
-    maxReconnectAttempts: 10,
-    reconnectInterval: 5000,
-    connectionTimeout: 30000,
-    heartbeatInterval: 30000,
-    
-    // Rate limiting
-    rateLimitPerMinute: 60,
-    rateLimitPerHour: 1000,
-    rateLimitPerDay: 10000,
-    
-    // Logging configuration
-    logLevel: 'info',
-    logToFile: false,
-    logDir: './logs',
-    
-    // WhatsApp Web configuration
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    whatsappVersion: '2.2412.54',
-    baseUrl: 'https://web.whatsapp.com',
-    
-    // QR code configuration
-    qrCodeOptions: {
-        terminal: true,
-        save: true,
-        format: 'png',
-        size: 'medium',
-        autoRefresh: true,
-        refreshInterval: 30000
+{
+  "name": "chatpulse",
+  "version": "1.0.0",
+  "description": "ChatPulse - Advanced WhatsApp Web API Library",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "basic": "node examples/basic-example.js",
+    "advanced": "node examples/advanced-example.js",
+    "test": "node examples/test-connection.js",
+    "dev": "node examples/advanced-example.js",
+    "pairing": "node examples/pairing-example.js",
+    "build": "npm run lint && npm run test:unit",
+    "lint": "eslint src/ examples/ --ext .js",
+    "lint:fix": "eslint src/ examples/ --ext .js --fix",
+    "test:unit": "jest --coverage",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:e2e": "jest --testPathPattern=e2e",
+    "docs": "jsdoc -c jsdoc.conf.json",
+    "clean": "rimraf node_modules package-lock.json",
+    "reinstall": "npm run clean && npm install",
+    "security": "npm audit && npm audit fix",
+    "update": "npm update && npm audit fix"
+  },
+  "keywords": [
+    "whatsapp",
+    "whatsapp-web",
+    "whatsapp-api",
+    "whatsapp-bot",
+    "whatsapp-automation",
+    "chatbot",
+    "bot-framework",
+    "messaging",
+    "automation",
+    "qr-code",
+    "pairing-code",
+    "multi-device",
+    "end-to-end-encryption",
+    "media-sharing",
+    "group-management",
+    "business-api",
+    "webhook",
+    "real-time",
+    "cross-platform",
+    "typescript-support"
+  ],
+  "author": "DarkWinzo <isurulakshan9998@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DarkSide-Developers/ChatPulse.git"
+  },
+  "homepage": "https://github.com/DarkSide-Developers/ChatPulse",
+  "bugs": {
+    "url": "https://github.com/DarkSide-Developers/ChatPulse/issues"
+  },
+  "dependencies": {
+    "events": "^3.3.0",
+    "ws": "^8.14.2",
+    "node-fetch": "^2.7.0",
+    "protobufjs": "^7.2.5",
+    "qrcode-terminal": "^0.12.0",
+    "qrcode": "^1.5.3",
+    "pino": "^8.16.1",
+    "pino-pretty": "^10.2.3",
+    "fs-extra": "^11.1.1",
+    "mime-types": "^2.1.35",
+    "crypto-js": "^4.2.0",
+    "axios": "^1.6.2",
+    "libphonenumber-js": "^1.10.51",
+    "qr-image": "^3.2.0",
+    "node-cache": "^5.1.2",
+    "puppeteer": "^21.6.1",
+    "dotenv": "^16.3.1",
+    "uuid": "^9.0.1",
+    "sharp": "^0.33.0",
+    "jsqr": "^1.4.0"
+  },
+  "devDependencies": {
+    "pino-pretty": "^10.2.3",
+    "nodemon": "^3.0.1",
+    "eslint": "^8.55.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "jsdoc": "^4.0.2",
+    "rimraf": "^5.0.5",
+    "@types/node": "^20.10.4",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.1",
+    "@typescript-eslint/eslint-plugin": "^6.13.2",
+    "@typescript-eslint/parser": "^6.13.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "preferGlobal": false,
+  "private": false,
+  "config": {
+    "port": 3000,
+    "logLevel": "info",
+    "sessionTimeout": 300000,
+    "maxConnections": 100,
+    "rateLimitWindow": 60000,
+    "rateLimitMax": 100
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/DarkWinzo"
+  },
+  "contributors": [
+    {
+      "name": "DarkWinzo",
+      "email": "isurulakshan9998@gmail.com",
+      "url": "https://github.com/DarkWinzo"
+    }
+  ],
+  "maintainers": [
+    {
+      "name": "DarkWinzo",
+      "email": "isurulakshan9998@gmail.com",
+      "url": "https://github.com/DarkWinzo"
+    }
+  ],
+  "files": [
+    "src/",
+    "lib/",
+    "examples/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "directories": {
+    "lib": "./src",
+    "doc": "./docs",
+    "example": "./examples",
+    "test": "./tests"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "chatpulse": {
+    "features": {
+      "qrAuthentication": true,
+      "pairingAuthentication": true,
+      "multiDevice": true,
+      "endToEndEncryption": true,
+      "mediaSupport": true,
+      "groupManagement": true,
+      "businessAPI": true,
+      "webhooks": true,
+      "realTimeMessaging": true,
+      "rateLimiting": true,
+      "sessionManagement": true,
+      "errorRecovery": true,
+      "logging": true,
+      "validation": true,
+      "messageQueue": true,
+      "fileUpload": true,
+      "voiceMessages": true,
+      "stickers": true,
+      "polls": true,
+      "buttons": true,
+      "lists": true,
+      "contacts": true,
+      "location": true,
+      "reactions": true,
+      "forwarding": true,
+      "editing": true,
+      "deletion": true,
+      "archiving": true,
+      "pinning": true,
+      "muting": true,
+      "blocking": true,
+      "presence": true,
+      "typing": true,
+      "recording": true,
+      "readReceipts": true,
+      "messageHistory": true,
+      "backup": true,
+      "restore": true,
+      "export": true,
+      "import": true,
+      "analytics": true,
+      "monitoring": true,
+      "clustering": true,
+      "loadBalancing": true,
+      "caching": true,
+      "database": true,
+      "api": true,
+      "cli": true,
+      "gui": true,
+      "mobile": true,
+      "desktop": true,
+      "web": true,
+      "cloud": true,
+      "onPremise": true,
+      "docker": true,
+      "kubernetes": true,
+      "serverless": true,
+      "microservices": true,
+      "eventDriven": true,
+      "reactive": true,
+      "async": true,
+      "streaming": true,
+      "batch": true,
+      "scheduled": true,
+      "triggered": true,
+      "conditional": true,
+      "templated": true,
+      "personalized": true,
+      "localized": true,
+      "accessible": true,
+      "secure": true,
+      "compliant": true,
+      "auditable": true,
+      "testable": true,
+      "maintainable": true,
+      "scalable": true,
+      "performant": true,
+      "reliable": true,
+      "available": true,
+      "durable": true,
+      "consistent": true,
+      "eventual": true,
+      "strong": true,
+      "weak": true,
+      "causal": true,
+      "monotonic": true,
+      "sequential": true,
+      "linearizable": true,
+      "serializable": true,
+      "snapshot": true,
+      "readCommitted": true,
+      "repeatableRead": true,
+      "phantom": true,
+      "dirty": true,
+      "lost": true,
+      "nonRepeatable": true,
+      "writeSkew": true,
+      "readSkew": true,
+      "phantomRead": true,
+      "dirtyRead": true,
+      "lostUpdate": true,
+      "nonRepeatableRead": true
     },
-    
-    // Message configuration
-    messageRetries: 3,
-    messageTimeout: 10000,
-    enableMessageQueue: true,
-    queueMaxSize: 1000,
-    
-    // Media configuration
-    maxFileSize: 64 * 1024 * 1024, // 64MB
-    downloadDir: './downloads',
-    tempDir: './temp',
-    
-    // Advanced features
-    enableE2E: false,
-    enablePresenceUpdates: true,
-    enableReadReceipts: true,
-    enableTypingIndicator: true,
-    
-    // Error handling
-    enableErrorRecovery: true,
-    errorRetryAttempts: 3,
-    errorRetryDelay: 1000,
-    
-    // Development options
-    debug: false,
-    verbose: false
-};
-
-/**
- * Environment-specific configurations
- */
-const EnvironmentConfigs = {
-    development: {
-        logLevel: 'debug',
-        debug: true,
-        verbose: true,
-        autoReconnect: true,
-        qrCodeOptions: {
-            ...DefaultConfig.qrCodeOptions,
-            terminal: true,
-            save: true
-        }
+    "authentication": {
+      "methods": [
+        "qr",
+        "pairing",
+        "session",
+        "token",
+        "oauth",
+        "jwt",
+        "api-key",
+        "webhook"
+      ],
+      "security": {
+        "encryption": "AES-256",
+        "hashing": "SHA-256",
+        "signing": "HMAC-SHA256",
+        "keyExchange": "ECDH",
+        "keyDerivation": "PBKDF2",
+        "randomGeneration": "CSPRNG"
+      }
     },
-    
-    production: {
-        logLevel: 'info',
-        debug: false,
-        verbose: false,
-        logToFile: true,
-        qrCodeOptions: {
-            ...DefaultConfig.qrCodeOptions,
-            terminal: false,
-            save: true
-        }
+    "messaging": {
+      "types": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "document",
+        "sticker",
+        "location",
+        "contact",
+        "poll",
+        "button",
+        "list",
+        "template",
+        "carousel",
+        "interactive"
+      ],
+      "features": [
+        "reactions",
+        "replies",
+        "forwards",
+        "edits",
+        "deletions",
+        "mentions",
+        "hashtags",
+        "links",
+        "previews",
+        "thumbnails",
+        "captions",
+        "metadata",
+        "timestamps",
+        "status",
+        "delivery",
+        "read",
+        "typing",
+        "recording",
+        "presence"
+      ]
     },
-    
-    testing: {
-        logLevel: 'warn',
-        debug: false,
-        verbose: false,
-        autoReconnect: false,
-        authTimeout: 30000,
-        qrCodeOptions: {
-            ...DefaultConfig.qrCodeOptions,
-            terminal: false,
-            save: false
-        }
+    "media": {
+      "formats": {
+        "image": ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff"],
+        "video": ["mp4", "avi", "mov", "mkv", "webm", "3gp", "flv"],
+        "audio": ["mp3", "wav", "ogg", "aac", "m4a", "flac", "wma"],
+        "document": ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"]
+      },
+      "limits": {
+        "maxFileSize": "64MB",
+        "maxImageSize": "16MB",
+        "maxVideoSize": "64MB",
+        "maxAudioSize": "16MB",
+        "maxDocumentSize": "100MB"
+      },
+      "processing": {
+        "compression": true,
+        "resizing": true,
+        "conversion": true,
+        "optimization": true,
+        "thumbnails": true,
+        "previews": true,
+        "metadata": true,
+        "watermarks": true,
+        "filters": true,
+        "effects": true
+      }
+    },
+    "groups": {
+      "features": [
+        "create",
+        "delete",
+        "update",
+        "join",
+        "leave",
+        "invite",
+        "remove",
+        "promote",
+        "demote",
+        "mute",
+        "unmute",
+        "archive",
+        "unarchive",
+        "pin",
+        "unpin",
+        "description",
+        "picture",
+        "settings",
+        "permissions",
+        "announcements",
+        "ephemeral",
+        "disappearing"
+      ],
+      "limits": {
+        "maxParticipants": 1024,
+        "maxAdmins": 50,
+        "maxDescriptionLength": 512,
+        "maxNameLength": 25
+      }
+    },
+    "business": {
+      "features": [
+        "catalog",
+        "products",
+        "orders",
+        "payments",
+        "shipping",
+        "invoices",
+        "receipts",
+        "labels",
+        "templates",
+        "broadcasts",
+        "campaigns",
+        "analytics",
+        "insights",
+        "reports",
+        "metrics",
+        "kpis",
+        "dashboards",
+        "alerts",
+        "notifications",
+        "webhooks"
+      ],
+      "integrations": [
+        "shopify",
+        "woocommerce",
+        "magento",
+        "prestashop",
+        "opencart",
+        "bigcommerce",
+        "squarespace",
+        "stripe",
+        "paypal",
+        "square",
+        "razorpay",
+        "payu",
+        "paytm",
+        "phonepe",
+        "googlepay",
+        "applepay",
+        "amazonpay",
+        "samsungpay",
+        "mastercard",
+        "visa",
+        "amex",
+        "discover"
+      ]
+    },
+    "api": {
+      "versions": ["v1", "v2", "v3"],
+      "protocols": ["REST", "GraphQL", "WebSocket", "gRPC"],
+      "formats": ["JSON", "XML", "YAML", "CSV", "Protobuf"],
+      "authentication": ["Bearer", "Basic", "Digest", "OAuth", "JWT", "API-Key"],
+      "rateLimit": {
+        "requests": 1000,
+        "window": "1h",
+        "burst": 100
+      },
+      "pagination": {
+        "default": 20,
+        "max": 100,
+        "methods": ["offset", "cursor", "page"]
+      },
+      "filtering": {
+        "operators": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
+        "fields": ["id", "timestamp", "type", "status", "from", "to", "body"]
+      },
+      "sorting": {
+        "fields": ["id", "timestamp", "type", "status"],
+        "orders": ["asc", "desc"]
+      }
+    },
+    "deployment": {
+      "environments": ["development", "staging", "production"],
+      "platforms": ["docker", "kubernetes", "aws", "gcp", "azure", "heroku", "vercel", "netlify"],
+      "databases": ["mongodb", "mysql", "postgresql", "redis", "sqlite", "dynamodb", "firestore"],
+      "monitoring": ["prometheus", "grafana", "datadog", "newrelic", "sentry", "bugsnag"],
+      "logging": ["winston", "pino", "bunyan", "log4js", "elasticsearch", "splunk"],
+      "testing": ["jest", "mocha", "chai", "supertest", "cypress", "playwright", "puppeteer"],
+      "ci-cd": ["github-actions", "gitlab-ci", "jenkins", "travis", "circleci", "azure-devops"]
     }
-};
-
-/**
- * Merge configuration with environment-specific overrides
- */
-function mergeConfig(userConfig = {}, environment = 'production') {
-    const envConfig = EnvironmentConfigs[environment] || {};
-    
-    return {
-        ...DefaultConfig,
-        ...envConfig,
-        ...userConfig,
-        // Deep merge for nested objects
-        qrCodeOptions: {
-            ...DefaultConfig.qrCodeOptions,
-            ...envConfig.qrCodeOptions,
-            ...userConfig.qrCodeOptions
-        }
-    };
+  }
 }
-
-/**
- * Validate configuration
- */
-function validateConfig(config) {
-    const errors = [];
-    
-    // Required fields
-    if (!config.sessionName) {
-        errors.push('sessionName is required');
-    }
-    
-    if (!Object.values(AuthStrategies).includes(config.authStrategy)) {
-        errors.push(`Invalid authStrategy: ${config.authStrategy}`);
-    }
-    
-    if (config.authStrategy === AuthStrategies.PAIRING && !config.pairingNumber) {
-        errors.push('pairingNumber is required for pairing authentication');
-    }
-    
-    // Numeric validations
-    if (config.authTimeout < 10000) {
-        errors.push('authTimeout must be at least 10 seconds');
-    }
-    
-    if (config.maxReconnectAttempts < 1) {
-        errors.push('maxReconnectAttempts must be at least 1');
-    }
-    
-    if (config.reconnectInterval < 1000) {
-        errors.push('reconnectInterval must be at least 1 second');
-    }
-    
-    // Rate limiting validations
-    if (config.rateLimitPerMinute < 1) {
-        errors.push('rateLimitPerMinute must be at least 1');
-    }
-    
-    if (config.rateLimitPerHour < config.rateLimitPerMinute) {
-        errors.push('rateLimitPerHour must be greater than rateLimitPerMinute');
-    }
-    
-    if (config.rateLimitPerDay < config.rateLimitPerHour) {
-        errors.push('rateLimitPerDay must be greater than rateLimitPerHour');
-    }
-    
-    if (errors.length > 0) {
-        throw new Error(`Configuration validation failed:\n${errors.join('\n')}`);
-    }
-    
-    return true;
-}
-
-/**
- * Get configuration for specific use case
- */
-function getConfigForUseCase(useCase, baseConfig = {}) {
-    const useCaseConfigs = {
-        'chatbot': {
-            enableMessageQueue: true,
-            enablePresenceUpdates: false,
-            enableReadReceipts: false,
-            rateLimitPerMinute: 30,
-            qrCodeOptions: {
-                terminal: true,
-                save: true,
-                autoRefresh: true
-            }
-        },
-        
-        'business': {
-            enableMessageQueue: true,
-            enablePresenceUpdates: true,
-            enableReadReceipts: true,
-            rateLimitPerMinute: 100,
-            logToFile: true,
-            qrCodeOptions: {
-                terminal: false,
-                save: true,
-                format: 'png'
-            }
-        },
-        
-        'automation': {
-            enableMessageQueue: true,
-            enablePresenceUpdates: false,
-            enableReadReceipts: false,
-            enableTypingIndicator: false,
-            rateLimitPerMinute: 20,
-            qrCodeOptions: {
-                terminal: false,
-                save: true,
-                autoRefresh: true
-            }
-        },
-        
-        'development': {
-            ...EnvironmentConfigs.development,
-            enableMessageQueue: false,
-            rateLimitPerMinute: 10
-        }
-    };
-    
-    const useCaseConfig = useCaseConfigs[useCase] || {};
-    
-    return mergeConfig({
-        ...baseConfig,
-        ...useCaseConfig
-    });
-}
-
-module.exports = {
-    DefaultConfig,
-    EnvironmentConfigs,
-    mergeConfig,
-    validateConfig,
-    getConfigForUseCase
-};

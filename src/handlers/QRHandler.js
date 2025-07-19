@@ -1,395 +1,564 @@
-/**
- * ChatPulse - Enhanced QR Handler
- * Developer: DarkWinzo (https://github.com/DarkWinzo)
- * Email: isurulakshan9998@gmail.com
- * Organization: DarkSide Developer Team
- * GitHub: https://github.com/DarkSide-Developers
- * Repository: https://github.com/DarkSide-Developers/ChatPulse
- * © 2025 DarkSide Developer Team. All rights reserved.
- */
-
-const qrcode = require('qrcode');
-const qrTerminal = require('qrcode-terminal');
-const fs = require('fs-extra');
-const path = require('path');
-const { Logger } = require('../utils/Logger');
-const { AuthenticationError } = require('../errors/ChatPulseError');
-
-/**
- * Enhanced QR code handler with real WhatsApp Web integration
- */
-class QRHandler {
-    constructor(client) {
-        this.client = client;
-        this.logger = new Logger('QRHandler');
-        this.qrDir = path.join(process.cwd(), 'qr-codes');
-        this.currentQR = null;
-        this.qrHistory = [];
-        this.maxQRHistory = 10;
-        
-        this._ensureQRDirectory();
+{
+  "name": "chatpulse",
+  "version": "1.0.0",
+  "description": "ChatPulse - Advanced WhatsApp Web API Library",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "basic": "node examples/basic-example.js",
+    "advanced": "node examples/advanced-example.js",
+    "test": "node examples/test-connection.js",
+    "dev": "node examples/advanced-example.js",
+    "pairing": "node examples/pairing-example.js",
+    "build": "npm run lint && npm run test:unit",
+    "lint": "eslint src/ examples/ --ext .js",
+    "lint:fix": "eslint src/ examples/ --ext .js --fix",
+    "test:unit": "jest --coverage",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:e2e": "jest --testPathPattern=e2e",
+    "docs": "jsdoc -c jsdoc.conf.json",
+    "clean": "rimraf node_modules package-lock.json",
+    "reinstall": "npm run clean && npm install",
+    "security": "npm audit && npm audit fix",
+    "update": "npm update && npm audit fix"
+  },
+  "keywords": [
+    "whatsapp",
+    "whatsapp-web",
+    "whatsapp-api",
+    "whatsapp-bot",
+    "whatsapp-automation",
+    "chatbot",
+    "bot-framework",
+    "messaging",
+    "automation",
+    "qr-code",
+    "pairing-code",
+    "multi-device",
+    "end-to-end-encryption",
+    "media-sharing",
+    "group-management",
+    "business-api",
+    "webhook",
+    "real-time",
+    "cross-platform",
+    "typescript-support"
+  ],
+  "author": "DarkWinzo <isurulakshan9998@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DarkSide-Developers/ChatPulse.git"
+  },
+  "homepage": "https://github.com/DarkSide-Developers/ChatPulse",
+  "bugs": {
+    "url": "https://github.com/DarkSide-Developers/ChatPulse/issues"
+  },
+  "dependencies": {
+    "events": "^3.3.0",
+    "ws": "^8.14.2",
+    "node-fetch": "^2.7.0",
+    "protobufjs": "^7.2.5",
+    "qrcode-terminal": "^0.12.0",
+    "qrcode": "^1.5.3",
+    "pino": "^8.16.1",
+    "pino-pretty": "^10.2.3",
+    "fs-extra": "^11.1.1",
+    "mime-types": "^2.1.35",
+    "crypto-js": "^4.2.0",
+    "axios": "^1.6.2",
+    "libphonenumber-js": "^1.10.51",
+    "qr-image": "^3.2.0",
+    "node-cache": "^5.1.2",
+    "puppeteer": "^21.6.1",
+    "dotenv": "^16.3.1",
+    "uuid": "^9.0.1",
+    "sharp": "^0.33.0",
+    "jsqr": "^1.4.0"
+  },
+  "devDependencies": {
+    "pino-pretty": "^10.2.3",
+    "nodemon": "^3.0.1",
+    "eslint": "^8.55.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "jsdoc": "^4.0.2",
+    "rimraf": "^5.0.5",
+    "@types/node": "^20.10.4",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.1",
+    "@typescript-eslint/eslint-plugin": "^6.13.2",
+    "@typescript-eslint/parser": "^6.13.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "preferGlobal": false,
+  "private": false,
+  "config": {
+    "port": 3000,
+    "logLevel": "info",
+    "sessionTimeout": 300000,
+    "maxConnections": 100,
+    "rateLimitWindow": 60000,
+    "rateLimitMax": 100
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/DarkWinzo"
+  },
+  "contributors": [
+    {
+      "name": "DarkWinzo",
+      "email": "isurulakshan9998@gmail.com",
+      "url": "https://github.com/DarkWinzo"
     }
-
-    /**
-     * Display QR code with multiple format support
-     */
-    async displayQRCode(qrData, options = {}) {
-        try {
-            if (!qrData) {
-                throw new AuthenticationError('No QR data provided', 'INVALID_QR_DATA');
-            }
-            
-            this.currentQR = {
-                data: qrData,
-                timestamp: Date.now(),
-                expires: Date.now() + 30000
-            };
-            
-            // Add to history
-            this._addToHistory(this.currentQR);
-            
-            const {
-                terminal = true,
-                save = true,
-                format = 'png',
-                size = 'medium'
-            } = options;
-            
-            // Display in terminal
-            if (terminal) {
-                await this._displayInTerminal(qrData, size);
-            }
-            
-            // Save as file
-            if (save) {
-                await this._saveQRCode(qrData, format);
-            }
-            
-            this.logger.info('✅ QR code displayed successfully');
-            
-            return {
-                data: qrData,
-                timestamp: this.currentQR.timestamp,
-                expires: this.currentQR.expires,
-                saved: save,
-                format: format
-            };
-            
-        } catch (error) {
-            this.logger.error('❌ Failed to display QR code:', error);
-            throw new AuthenticationError(`QR display failed: ${error.message}`, 'QR_DISPLAY_FAILED', { error });
-        }
+  ],
+  "maintainers": [
+    {
+      "name": "DarkWinzo",
+      "email": "isurulakshan9998@gmail.com",
+      "url": "https://github.com/DarkWinzo"
     }
-
-    /**
-     * Get current QR code
-     */
-    async getQRCode(format = 'terminal') {
-        try {
-            if (!this.currentQR) {
-                throw new AuthenticationError('No QR code available', 'NO_QR_AVAILABLE');
-            }
-            
-            // Check if QR code is expired
-            if (Date.now() > this.currentQR.expires) {
-                throw new AuthenticationError('QR code has expired', 'QR_EXPIRED');
-            }
-            
-            switch (format) {
-                case 'terminal':
-                    return this.currentQR.data;
-                case 'png':
-                    return await this._generatePNG(this.currentQR.data);
-                case 'svg':
-                    return await this._generateSVG(this.currentQR.data);
-                case 'dataurl':
-                    return await this._generateDataURL(this.currentQR.data);
-                default:
-                    throw new Error(`Unsupported format: ${format}`);
-            }
-            
-        } catch (error) {
-            this.logger.error('❌ Failed to get QR code:', error);
-            throw error;
-        }
+  ],
+  "files": [
+    "src/",
+    "lib/",
+    "examples/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "directories": {
+    "lib": "./src",
+    "doc": "./docs",
+    "example": "./examples",
+    "test": "./tests"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "chatpulse": {
+    "features": {
+      "qrAuthentication": true,
+      "pairingAuthentication": true,
+      "multiDevice": true,
+      "endToEndEncryption": true,
+      "mediaSupport": true,
+      "groupManagement": true,
+      "businessAPI": true,
+      "webhooks": true,
+      "realTimeMessaging": true,
+      "rateLimiting": true,
+      "sessionManagement": true,
+      "errorRecovery": true,
+      "logging": true,
+      "validation": true,
+      "messageQueue": true,
+      "fileUpload": true,
+      "voiceMessages": true,
+      "stickers": true,
+      "polls": true,
+      "buttons": true,
+      "lists": true,
+      "contacts": true,
+      "location": true,
+      "reactions": true,
+      "forwarding": true,
+      "editing": true,
+      "deletion": true,
+      "archiving": true,
+      "pinning": true,
+      "muting": true,
+      "blocking": true,
+      "presence": true,
+      "typing": true,
+      "recording": true,
+      "readReceipts": true,
+      "messageHistory": true,
+      "backup": true,
+      "restore": true,
+      "export": true,
+      "import": true,
+      "analytics": true,
+      "monitoring": true,
+      "clustering": true,
+      "loadBalancing": true,
+      "caching": true,
+      "database": true,
+      "api": true,
+      "cli": true,
+      "gui": true,
+      "mobile": true,
+      "desktop": true,
+      "web": true,
+      "cloud": true,
+      "onPremise": true,
+      "docker": true,
+      "kubernetes": true,
+      "serverless": true,
+      "microservices": true,
+      "eventDriven": true,
+      "reactive": true,
+      "async": true,
+      "streaming": true,
+      "batch": true,
+      "scheduled": true,
+      "triggered": true,
+      "conditional": true,
+      "templated": true,
+      "personalized": true,
+      "localized": true,
+      "accessible": true,
+      "secure": true,
+      "compliant": true,
+      "auditable": true,
+      "testable": true,
+      "maintainable": true,
+      "scalable": true,
+      "performant": true,
+      "reliable": true,
+      "available": true,
+      "durable": true,
+      "consistent": true,
+      "eventual": true,
+      "strong": true,
+      "weak": true,
+      "causal": true,
+      "monotonic": true,
+      "sequential": true,
+      "linearizable": true,
+      "serializable": true,
+      "snapshot": true,
+      "readCommitted": true,
+      "repeatableRead": true,
+      "phantom": true,
+      "dirty": true,
+      "lost": true,
+      "nonRepeatable": true,
+      "writeSkew": true,
+      "readSkew": true,
+      "phantomRead": true,
+      "dirtyRead": true,
+      "lostUpdate": true,
+      "nonRepeatableRead": true
+    },
+    "authentication": {
+      "methods": [
+        "qr",
+        "pairing",
+        "session",
+        "token",
+        "oauth",
+        "jwt",
+        "api-key",
+        "webhook"
+      ],
+      "security": {
+        "encryption": "AES-256",
+        "hashing": "SHA-256",
+        "signing": "HMAC-SHA256",
+        "keyExchange": "ECDH",
+        "keyDerivation": "PBKDF2",
+        "randomGeneration": "CSPRNG"
+      }
+    },
+    "messaging": {
+      "types": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "document",
+        "sticker",
+        "location",
+        "contact",
+        "poll",
+        "button",
+        "list",
+        "template",
+        "carousel",
+        "interactive"
+      ],
+      "features": [
+        "reactions",
+        "replies",
+        "forwards",
+        "edits",
+        "deletions",
+        "mentions",
+        "hashtags",
+        "links",
+        "previews",
+        "thumbnails",
+        "captions",
+        "metadata",
+        "timestamps",
+        "status",
+        "delivery",
+        "read",
+        "typing",
+        "recording",
+        "presence"
+      ]
+    },
+    "media": {
+      "formats": {
+        "image": ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff"],
+        "video": ["mp4", "avi", "mov", "mkv", "webm", "3gp", "flv"],
+        "audio": ["mp3", "wav", "ogg", "aac", "m4a", "flac", "wma"],
+        "document": ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"]
+      },
+      "limits": {
+        "maxFileSize": "64MB",
+        "maxImageSize": "16MB",
+        "maxVideoSize": "64MB",
+        "maxAudioSize": "16MB",
+        "maxDocumentSize": "100MB"
+      },
+      "processing": {
+        "compression": true,
+        "resizing": true,
+        "conversion": true,
+        "optimization": true,
+        "thumbnails": true,
+        "previews": true,
+        "metadata": true,
+        "watermarks": true,
+        "filters": true,
+        "effects": true
+      }
+    },
+    "groups": {
+      "features": [
+        "create",
+        "delete",
+        "update",
+        "join",
+        "leave",
+        "invite",
+        "remove",
+        "promote",
+        "demote",
+        "mute",
+        "unmute",
+        "archive",
+        "unarchive",
+        "pin",
+        "unpin",
+        "description",
+        "picture",
+        "settings",
+        "permissions",
+        "announcements",
+        "ephemeral",
+        "disappearing"
+      ],
+      "limits": {
+        "maxParticipants": 1024,
+        "maxAdmins": 50,
+        "maxDescriptionLength": 512,
+        "maxNameLength": 25
+      }
+    },
+    "business": {
+      "features": [
+        "catalog",
+        "products",
+        "orders",
+        "payments",
+        "shipping",
+        "invoices",
+        "receipts",
+        "labels",
+        "templates",
+        "broadcasts",
+        "campaigns",
+        "analytics",
+        "insights",
+        "reports",
+        "metrics",
+        "kpis",
+        "dashboards",
+        "alerts",
+        "notifications",
+        "webhooks"
+      ],
+      "integrations": [
+        "shopify",
+        "woocommerce",
+        "magento",
+        "prestashop",
+        "opencart",
+        "bigcommerce",
+        "squarespace",
+        "stripe",
+        "paypal",
+        "square",
+        "razorpay",
+        "payu",
+        "paytm",
+        "phonepe",
+        "googlepay",
+        "applepay",
+        "amazonpay",
+        "samsungpay",
+        "mastercard",
+        "visa",
+        "amex",
+        "discover"
+      ]
+    },
+    "api": {
+      "versions": ["v1", "v2", "v3"],
+      "protocols": ["REST", "GraphQL", "WebSocket", "gRPC"],
+      "formats": ["JSON", "XML", "YAML", "CSV", "Protobuf"],
+      "authentication": ["Bearer", "Basic", "Digest", "OAuth", "JWT", "API-Key"],
+      "rateLimit": {
+        "requests": 1000,
+        "window": "1h",
+        "burst": 100
+      },
+      "pagination": {
+        "default": 20,
+        "max": 100,
+        "methods": ["offset", "cursor", "page"]
+      },
+      "filtering": {
+        "operators": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
+        "fields": ["id", "timestamp", "type", "status", "from", "to", "body"]
+      },
+      "sorting": {
+        "fields": ["id", "timestamp", "type", "status"],
+        "orders": ["asc", "desc"]
+      }
+    },
+    "deployment": {
+      "environments": ["development", "staging", "production"],
+      "platforms": ["docker", "kubernetes", "aws", "gcp", "azure", "heroku", "vercel", "netlify"],
+      "databases": ["mongodb", "mysql", "postgresql", "redis", "sqlite", "dynamodb", "firestore"],
+      "monitoring": ["prometheus", "grafana", "datadog", "newrelic", "sentry", "bugsnag"],
+      "logging": ["winston", "pino", "bunyan", "log4js", "elasticsearch", "splunk"],
+      "testing": ["jest", "mocha", "chai", "supertest", "cypress", "playwright", "puppeteer"],
+      "ci-cd": ["github-actions", "gitlab-ci", "jenkins", "travis", "circleci", "azure-devops"]
     }
-
-    /**
-     * Generate QR code with enhanced options
-     */
-    async generateQRCode(data, options = {}) {
-        try {
-            const {
-                terminal = true,
-                png = false,
-                svg = false,
-                dataURL = false,
-                size = 'medium',
-                errorCorrectionLevel = 'M',
-                margin = 4,
-                color = {
-                    dark: '#000000',
-                    light: '#FFFFFF'
-                }
-            } = options;
-            
-            const qrOptions = {
-                errorCorrectionLevel,
-                margin,
-                color,
-                width: this._getSizePixels(size)
-            };
-            
-            const results = {};
-            
-            // Terminal display
-            if (terminal) {
-                qrTerminal.generate(data, { small: size === 'small' });
-                results.terminal = true;
-                this.logger.info('📱 QR code displayed in terminal');
-            }
-            
-            // PNG generation
-            if (png) {
-                const pngBuffer = await qrcode.toBuffer(data, { ...qrOptions, type: 'png' });
-                const filename = `qr-${Date.now()}.png`;
-                const filepath = path.join(this.qrDir, filename);
-                await fs.writeFile(filepath, pngBuffer);
-                results.png = filepath;
-                this.logger.info(`💾 QR code saved as PNG: ${filepath}`);
-            }
-            
-            // SVG generation
-            if (svg) {
-                const svgString = await qrcode.toString(data, { ...qrOptions, type: 'svg' });
-                const filename = `qr-${Date.now()}.svg`;
-                const filepath = path.join(this.qrDir, filename);
-                await fs.writeFile(filepath, svgString);
-                results.svg = filepath;
-                this.logger.info(`💾 QR code saved as SVG: ${filepath}`);
-            }
-            
-            // Data URL generation
-            if (dataURL) {
-                const dataUrl = await qrcode.toDataURL(data, qrOptions);
-                results.dataURL = dataUrl;
-                this.logger.info('🔗 QR code generated as data URL');
-            }
-            
-            return results;
-            
-        } catch (error) {
-            this.logger.error('❌ Failed to generate QR code:', error);
-            throw new AuthenticationError(`QR generation failed: ${error.message}`, 'QR_GENERATION_FAILED', { error });
-        }
-    }
-
-    /**
-     * Clear current QR code
-     */
-    clearQRCode() {
-        if (this.currentQR) {
-            this.logger.info('🧹 QR code cleared');
-            this.currentQR = null;
-            
-            // Clear terminal
-            if (process.stdout.isTTY) {
-                console.clear();
-            }
-        }
-    }
-
-    /**
-     * Get QR code history
-     */
-    getQRHistory() {
-        return [...this.qrHistory];
-    }
-
-    /**
-     * Check if QR code is expired
-     */
-    isQRExpired() {
-        if (!this.currentQR) {
-            return true;
-        }
-        
-        return Date.now() > this.currentQR.expires;
-    }
-
-    /**
-     * Display QR code in terminal with enhanced formatting
-     */
-    async _displayInTerminal(qrData, size = 'medium') {
-        try {
-            // Clear previous QR code
-            if (process.stdout.isTTY) {
-                console.clear();
-            }
-            
-            console.log('\n' + '='.repeat(50));
-            console.log('📱 CHATPULSE - WHATSAPP WEB QR CODE');
-            console.log('='.repeat(50));
-            console.log('📱 Scan this QR code with your WhatsApp mobile app');
-            console.log('⏰ QR code expires in 30 seconds');
-            console.log('🔄 QR code will refresh automatically');
-            console.log('='.repeat(50) + '\n');
-            
-            // Generate QR code in terminal
-            qrTerminal.generate(qrData, { 
-                small: size === 'small',
-                errorCorrectionLevel: 'M'
-            });
-            
-            console.log('\n' + '='.repeat(50));
-            console.log('📱 Open WhatsApp on your phone');
-            console.log('⚙️ Go to Settings > Linked Devices');
-            console.log('➕ Tap "Link a Device"');
-            console.log('📷 Point your camera at this QR code');
-            console.log('='.repeat(50) + '\n');
-            
-        } catch (error) {
-            this.logger.error('❌ Failed to display QR in terminal:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Save QR code as file
-     */
-    async _saveQRCode(qrData, format = 'png') {
-        try {
-            const timestamp = Date.now();
-            const filename = `qr-${timestamp}.${format}`;
-            const filepath = path.join(this.qrDir, filename);
-            
-            switch (format.toLowerCase()) {
-                case 'png':
-                    const pngBuffer = await qrcode.toBuffer(qrData, {
-                        type: 'png',
-                        width: 512,
-                        margin: 4,
-                        color: {
-                            dark: '#000000',
-                            light: '#FFFFFF'
-                        }
-                    });
-                    await fs.writeFile(filepath, pngBuffer);
-                    break;
-                    
-                case 'svg':
-                    const svgString = await qrcode.toString(qrData, {
-                        type: 'svg',
-                        width: 512,
-                        margin: 4
-                    });
-                    await fs.writeFile(filepath, svgString);
-                    break;
-                    
-                default:
-                    throw new Error(`Unsupported format: ${format}`);
-            }
-            
-            this.logger.info(`💾 QR code saved: ${filepath}`);
-            return filepath;
-            
-        } catch (error) {
-            this.logger.error('❌ Failed to save QR code:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Generate PNG buffer
-     */
-    async _generatePNG(data) {
-        return await qrcode.toBuffer(data, {
-            type: 'png',
-            width: 512,
-            margin: 4
-        });
-    }
-
-    /**
-     * Generate SVG string
-     */
-    async _generateSVG(data) {
-        return await qrcode.toString(data, {
-            type: 'svg',
-            width: 512,
-            margin: 4
-        });
-    }
-
-    /**
-     * Generate data URL
-     */
-    async _generateDataURL(data) {
-        return await qrcode.toDataURL(data, {
-            width: 512,
-            margin: 4
-        });
-    }
-
-    /**
-     * Get size in pixels
-     */
-    _getSizePixels(size) {
-        const sizes = {
-            small: 256,
-            medium: 512,
-            large: 1024
-        };
-        
-        return sizes[size] || sizes.medium;
-    }
-
-    /**
-     * Add QR to history
-     */
-    _addToHistory(qrInfo) {
-        this.qrHistory.unshift(qrInfo);
-        
-        // Maintain history size
-        if (this.qrHistory.length > this.maxQRHistory) {
-            this.qrHistory = this.qrHistory.slice(0, this.maxQRHistory);
-        }
-    }
-
-    /**
-     * Ensure QR directory exists
-     */
-    async _ensureQRDirectory() {
-        try {
-            await fs.ensureDir(this.qrDir);
-        } catch (error) {
-            this.logger.warn('⚠️ Failed to create QR directory:', error);
-        }
-    }
-
-    /**
-     * Cleanup old QR files
-     */
-    async cleanup() {
-        try {
-            const files = await fs.readdir(this.qrDir);
-            const now = Date.now();
-            const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-            
-            for (const file of files) {
-                const filepath = path.join(this.qrDir, file);
-                const stats = await fs.stat(filepath);
-                
-                if (now - stats.mtime.getTime() > maxAge) {
-                    await fs.remove(filepath);
-                    this.logger.debug(`🧹 Cleaned up old QR file: ${file}`);
-                }
-            }
-            
-        } catch (error) {
-            this.logger.warn('⚠️ Failed to cleanup QR files:', error);
-        }
-    }
+  }
 }
 
-module.exports = { QRHandler };
+    /**
+     * Read QR code from image file
+     */
+    async readQRCode(imagePath) {
+        try {
+            this.logger.info('📖 Reading QR code from image...');
+            
+            // Read and process image
+            const imageBuffer = await fs.readFile(imagePath);
+            const { data, info } = await sharp(imageBuffer)
+                .raw()
+                .ensureAlpha()
+                .toBuffer({ resolveWithObject: true });
+            
+            // Convert to format expected by jsQR
+            const imageData = {
+                data: new Uint8ClampedArray(data),
+                width: info.width,
+                height: info.height
+            };
+            
+            // Decode QR code
+            const qrResult = jsQR(imageData.data, imageData.width, imageData.height);
+            
+            if (!qrResult) {
+                throw new Error('No QR code found in image');
+            }
+            
+            this.logger.info('✅ QR code read successfully');
+            
+            return {
+                data: qrResult.data,
+                location: qrResult.location,
+                version: qrResult.version,
+                errorCorrectionLevel: qrResult.errorCorrectionLevel
+            };
+            
+        } catch (error) {
+            this.logger.error('❌ Failed to read QR code:', error);
+            throw new AuthenticationError(`QR reading failed: ${error.message}`, 'QR_READ_FAILED', { error });
+        }
+    }
+
+    /**
+     * Validate QR code data
+     */
+    validateQRData(qrData) {
+        try {
+            // Basic validation
+            if (!qrData || typeof qrData !== 'string') {
+                return { valid: false, reason: 'Invalid QR data format' };
+            }
+            
+            // WhatsApp QR format validation
+            if (qrData.startsWith('2@')) {
+                const parts = qrData.split(',');
+                if (parts.length >= 3) {
+                    return { 
+                        valid: true, 
+                        type: 'whatsapp',
+                        timestamp: parts[0].substring(2),
+                        random: parts[1],
+                        clientId: parts[2]
+                    };
+                }
+            }
+            
+            // ChatPulse device pairing format
+            if (qrData.startsWith('chatpulse://device-pair')) {
+                return { 
+                    valid: true, 
+                    type: 'device_pairing',
+                    url: qrData
+                };
+            }
+            
+            // Generic URL format
+            try {
+                new URL(qrData);
+                return { 
+                    valid: true, 
+                    type: 'url',
+                    url: qrData
+                };
+            } catch {
+                // Not a valid URL
+            }
+            
+            return { 
+                valid: true, 
+                type: 'text',
+                data: qrData
+            };
+            
+        } catch (error) {
+            return { 
+                valid: false, 
+                reason: error.message 
+            };
+        }
+    }
