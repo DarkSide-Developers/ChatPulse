@@ -1079,6 +1079,30 @@ class ChatPulse extends EventEmitter {
                 }
             });
             
+            // Expose message handler to page
+            await this.page.exposeFunction('chatPulseMessageReceived', (messageData) => {
+                this._handleIncomingMessage(messageData);
+            });
+            
+        } catch (error) {
+            this.logger.error('Error setting up message monitoring:', error);
+        }
+    }
+
+    /**
+     * Handle incoming message
+     */
+    async _handleIncomingMessage(messageData) {
+        try {
+            // Parse message data
+            let message;
+            try {
+                message = this.protocolHandler.parseMessage(messageData);
+            } catch (parseError) {
+                this.logger.warn('Failed to parse incoming message:', parseError);
+                message = {
+                    type: 'unknown',
+                    data: messageData,
                     timestamp: Date.now(),
                     parseError: parseError.message
                 };
