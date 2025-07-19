@@ -1,504 +1,304 @@
-{
-  "name": "chatpulse",
-  "version": "1.0.0",
-  "description": "ChatPulse - Advanced WhatsApp Web API Library",
-  "main": "src/index.js",
-  "scripts": {
-    "start": "node src/index.js",
-    "basic": "node examples/basic-example.js",
-    "advanced": "node examples/advanced-example.js",
-    "test": "node examples/test-connection.js",
-    "dev": "node examples/advanced-example.js",
-    "pairing": "node examples/pairing-example.js",
-    "build": "npm run lint && npm run test:unit",
-    "lint": "eslint src/ examples/ --ext .js",
-    "lint:fix": "eslint src/ examples/ --ext .js --fix",
-    "test:unit": "jest --coverage",
-    "test:integration": "jest --testPathPattern=integration",
-    "test:e2e": "jest --testPathPattern=e2e",
-    "docs": "jsdoc -c jsdoc.conf.json",
-    "clean": "rimraf node_modules package-lock.json",
-    "reinstall": "npm run clean && npm install",
-    "security": "npm audit && npm audit fix",
-    "update": "npm update && npm audit fix"
-  },
-  "keywords": [
-    "whatsapp",
-    "whatsapp-web",
-    "whatsapp-api",
-    "whatsapp-bot",
-    "whatsapp-automation",
-    "chatbot",
-    "bot-framework",
-    "messaging",
-    "automation",
-    "qr-code",
-    "pairing-code",
-    "multi-device",
-    "end-to-end-encryption",
-    "media-sharing",
-    "group-management",
-    "business-api",
-    "webhook",
-    "real-time",
-    "cross-platform",
-    "typescript-support"
-  ],
-  "author": "DarkWinzo <isurulakshan9998@gmail.com>",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/DarkSide-Developers/ChatPulse.git"
-  },
-  "homepage": "https://github.com/DarkSide-Developers/ChatPulse",
-  "bugs": {
-    "url": "https://github.com/DarkSide-Developers/ChatPulse/issues"
-  },
-  "dependencies": {
-    "events": "^3.3.0",
-    "ws": "^8.14.2",
-    "node-fetch": "^2.7.0",
-    "protobufjs": "^7.2.5",
-    "qrcode-terminal": "^0.12.0",
-    "qrcode": "^1.5.3",
-    "pino": "^8.16.1",
-    "pino-pretty": "^10.2.3",
-    "fs-extra": "^11.1.1",
-    "mime-types": "^2.1.35",
-    "crypto-js": "^4.2.0",
-    "axios": "^1.6.2",
-    "libphonenumber-js": "^1.10.51",
-    "qr-image": "^3.2.0",
-    "node-cache": "^5.1.2",
-    sessionName: 'my-bot',
-    authStrategy: 'phone_number',
-    phoneNumber: '+1234567890'
-});
-    "puppeteer": "^21.6.1",
-    "dotenv": "^16.3.1",
-    "uuid": "^9.0.1",
-    "sharp": "^0.33.0",
-    "jsqr": "^1.4.0"
-  },
-  "devDependencies": {
-    "pino-pretty": "^10.2.3",
-    "nodemon": "^3.0.1",
-    "eslint": "^8.55.0",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-import": "^2.29.0",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^6.1.1",
-    "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "jsdoc": "^4.0.2",
-    "rimraf": "^5.0.5",
-    "@types/node": "^20.10.4",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.1",
-    "@typescript-eslint/eslint-plugin": "^6.13.2",
-    "@typescript-eslint/parser": "^6.13.2"
-  },
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
-  },
-  "os": [
-    "linux",
-    "darwin",
-    "win32"
-  ],
-  "cpu": [
-    "x64",
-    "arm64"
-  ],
-  "preferGlobal": false,
-  "private": false,
-  "config": {
-    "port": 3000,
-    "logLevel": "info",
-    "sessionTimeout": 300000,
-    "maxConnections": 100,
-    "rateLimitWindow": 60000,
-    "rateLimitMax": 100
-  },
-  "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/DarkWinzo"
-  },
-  "contributors": [
-    {
-      "name": "DarkWinzo",
-      "email": "isurulakshan9998@gmail.com",
-      "url": "https://github.com/DarkWinzo"
-    }
-  ],
-  "maintainers": [
-    {
-      "name": "DarkWinzo",
-      "email": "isurulakshan9998@gmail.com",
-      "url": "https://github.com/DarkWinzo"
-    }
-  ],
-  "files": [
-    "src/",
-    "lib/",
-    "examples/",
-    "docs/",
-    "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
-  ],
-  "directories": {
-    "lib": "./src",
-    "doc": "./docs",
-    "example": "./examples",
-    "test": "./tests"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
-  "chatpulse": {
-    "features": {
-      "qrAuthentication": true,
-      "pairingAuthentication": true,
-      "multiDevice": true,
-      "endToEndEncryption": true,
-      "mediaSupport": true,
-      "groupManagement": true,
-      "businessAPI": true,
-      "webhooks": true,
-      "realTimeMessaging": true,
-      "rateLimiting": true,
-      "sessionManagement": true,
-      "errorRecovery": true,
-      "logging": true,
-      "validation": true,
-      "messageQueue": true,
-      "fileUpload": true,
-      "voiceMessages": true,
-      "stickers": true,
-      "polls": true,
-      "buttons": true,
-      "lists": true,
-      "contacts": true,
-      "location": true,
-      "reactions": true,
-      "forwarding": true,
-      "editing": true,
-      "deletion": true,
-      "archiving": true,
-      "pinning": true,
-      "muting": true,
-      "blocking": true,
-      "presence": true,
-      "typing": true,
-      "recording": true,
-      "readReceipts": true,
-      "messageHistory": true,
-      "backup": true,
-      "restore": true,
-      "export": true,
-      "import": true,
-      "analytics": true,
-      "monitoring": true,
-      "clustering": true,
-      "loadBalancing": true,
-      "caching": true,
-      "database": true,
-      "api": true,
-      "cli": true,
-      "gui": true,
-      "mobile": true,
-      "desktop": true,
-      "web": true,
-      "cloud": true,
-      "onPremise": true,
-      "docker": true,
-      "kubernetes": true,
-      "serverless": true,
-      "microservices": true,
-      "eventDriven": true,
-      "reactive": true,
-      "async": true,
-      "streaming": true,
-      "batch": true,
-      "scheduled": true,
-      "triggered": true,
-      "conditional": true,
-      "templated": true,
-      "personalized": true,
-      "localized": true,
-      "accessible": true,
-      "secure": true,
-      "compliant": true,
-      "auditable": true,
-      "testable": true,
-      "maintainable": true,
-      "scalable": true,
-      "performant": true,
-      "reliable": true,
-      "available": true,
-      "durable": true,
-      "consistent": true,
-      "eventual": true,
-      "strong": true,
-      "weak": true,
-      "causal": true,
-      "monotonic": true,
-      "sequential": true,
-      "linearizable": true,
-      "serializable": true,
-      "snapshot": true,
-      "readCommitted": true,
-      "repeatableRead": true,
-      "phantom": true,
-      "dirty": true,
-      "lost": true,
-      "nonRepeatable": true,
-      "writeSkew": true,
-      "readSkew": true,
-      "phantomRead": true,
-      "dirtyRead": true,
-      "lostUpdate": true,
-      "nonRepeatableRead": true
-    },
-    "authentication": {
-      "methods": [
-        "qr",
-        "pairing",
-        "session",
-        "token",
-        "oauth",
-        "jwt",
-        "api-key",
-        "webhook"
-      ],
-      "security": {
-        "encryption": "AES-256",
-        "hashing": "SHA-256",
-        "signing": "HMAC-SHA256",
-        "keyExchange": "ECDH",
-        "keyDerivation": "PBKDF2",
-        "randomGeneration": "CSPRNG"
-      }
-    },
-    "messaging": {
-      "types": [
-        "text",
-        "image",
-        "video",
-        "audio",
-        "document",
-        "sticker",
-        "location",
-        "contact",
-        "poll",
-        "button",
-        "list",
-        "template",
-        "carousel",
-        "interactive"
-      ],
-      "features": [
-        "reactions",
-        "replies",
-        "forwards",
-        "edits",
-        "deletions",
-        "mentions",
-        "hashtags",
-        "links",
-        "previews",
-        "thumbnails",
-        "captions",
-        "metadata",
-        "timestamps",
-        "status",
-        "delivery",
-        "read",
-        "typing",
-        "recording",
-        "presence"
-      ]
-    },
-    "media": {
-      "formats": {
-        "image": ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff"],
-        "video": ["mp4", "avi", "mov", "mkv", "webm", "3gp", "flv"],
-        "audio": ["mp3", "wav", "ogg", "aac", "m4a", "flac", "wma"],
-        "document": ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"]
-      },
-      "limits": {
-        "maxFileSize": "64MB",
-        "maxImageSize": "16MB",
-        "maxVideoSize": "64MB",
-        "maxAudioSize": "16MB",
-        "maxDocumentSize": "100MB"
-      },
-      "processing": {
-        "compression": true,
-        "resizing": true,
-        "conversion": true,
-        "optimization": true,
-        "thumbnails": true,
-        "previews": true,
-        "metadata": true,
-        "watermarks": true,
-        "filters": true,
-        "effects": true
-      }
-    },
-    "groups": {
-      "features": [
-        "create",
-        "delete",
-        "update",
-        "join",
-        "leave",
-        "invite",
-        "remove",
-        "promote",
-        "demote",
-        "mute",
-        "unmute",
-        "archive",
-        "unarchive",
-        "pin",
-        "unpin",
-        "description",
-        "picture",
-        "settings",
-        "permissions",
-        "announcements",
-        "ephemeral",
-        "disappearing"
-      ],
-      "limits": {
-        "maxParticipants": 1024,
-        "maxAdmins": 50,
-        "maxDescriptionLength": 512,
-        "maxNameLength": 25
-      }
-    },
-    "business": {
-      "features": [
-        "catalog",
-        "products",
-        "orders",
-        "payments",
-        "shipping",
-        "invoices",
-        "receipts",
-        "labels",
-        "templates",
-        "broadcasts",
-        "campaigns",
-        "analytics",
-        "insights",
-        "reports",
-        "metrics",
-        "kpis",
-        "dashboards",
-        "alerts",
-        "notifications",
-        "webhooks"
-      ],
-      "integrations": [
-        "shopify",
-        "woocommerce",
-        "magento",
-        "prestashop",
-        "opencart",
-        "bigcommerce",
-        "squarespace",
-        "stripe",
-        "paypal",
-        "square",
-        "razorpay",
-        "payu",
-        "paytm",
-        "phonepe",
-        "googlepay",
-        "applepay",
-        "amazonpay",
-        "samsungpay",
-        "mastercard",
-        "visa",
-        "amex",
-        "discover"
-      ]
-    },
-    "api": {
-      "versions": ["v1", "v2", "v3"],
-      "protocols": ["REST", "GraphQL", "WebSocket", "gRPC"],
-      "formats": ["JSON", "XML", "YAML", "CSV", "Protobuf"],
-      "authentication": ["Bearer", "Basic", "Digest", "OAuth", "JWT", "API-Key"],
-      "rateLimit": {
-        "requests": 1000,
-        "window": "1h",
-        "burst": 100
-      },
-      "pagination": {
-        "default": 20,
-        "max": 100,
-        "methods": ["offset", "cursor", "page"]
-      },
-      "filtering": {
-        "operators": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
-        "fields": ["id", "timestamp", "type", "status", "from", "to", "body"]
-      },
-      "sorting": {
-        "fields": ["id", "timestamp", "type", "status"],
-        "orders": ["asc", "desc"]
-      }
-    },
-    "deployment": {
-      "environments": ["development", "staging", "production"],
-      "platforms": ["docker", "kubernetes", "aws", "gcp", "azure", "heroku", "vercel", "netlify"],
-      "databases": ["mongodb", "mysql", "postgresql", "redis", "sqlite", "dynamodb", "firestore"],
-      "monitoring": ["prometheus", "grafana", "datadog", "newrelic", "sentry", "bugsnag"],
-      "logging": ["winston", "pino", "bunyan", "log4js", "elasticsearch", "splunk"],
-      "testing": ["jest", "mocha", "chai", "supertest", "cypress", "playwright", "puppeteer"],
-      "ci-cd": ["github-actions", "gitlab-ci", "jenkins", "travis", "circleci", "azure-devops"]
-    }
-  }
-}
+# ChatPulse 2.0 - Advanced WhatsApp Web API
 
-### Email Authentication
-client.on('phone_verification_sent', async (data) => {
-```javascript
-const client = new ChatPulse({
-    sessionName: 'my-bot',
-    authStrategy: 'email',
-    email: 'user@example.com'
-});
-    console.log(`Verification sent to: ${data.phoneNumber}`);
-client.on('email_magic_link_sent', (data) => {
-    console.log(`Magic link sent to: ${data.email}`);
-    console.log(`Link: ${data.magicLink}`);
-});
+[![npm version](https://badge.fury.io/js/chatpulse.svg)](https://badge.fury.io/js/chatpulse)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](https://nodejs.org/)
+
+**ChatPulse** is a powerful, lightweight WhatsApp Web API library built for Node.js. It provides advanced authentication methods, real-time messaging, and professional-grade features for building WhatsApp bots and automation tools.
+
+## 🚀 Features
+
+- **Multiple Authentication Methods**: QR Code, Phone Number, Email, Pairing Code
+- **Real-time Messaging**: Send/receive text, media, buttons, lists, polls
+- **Advanced Connection**: WebSocket-based, no browser automation
+- **Session Management**: Persistent sessions with automatic restoration
+- **Rate Limiting**: Built-in protection against spam
+- **Error Recovery**: Automatic reconnection and error handling
+- **TypeScript Support**: Full type definitions included
+
+## 📦 Installation
+
+```bash
+npm install chatpulse
 ```
-    
-### Multi-Device Authentication
-    // User enters verification code
+
+## 🔧 Quick Start
+
+### Basic Usage
+
 ```javascript
+const { ChatPulse } = require('chatpulse');
+
 const client = new ChatPulse({
     sessionName: 'my-bot',
-    authStrategy: 'multi_device',
-    deviceInfo: {
-        deviceId: 'laptop-001',
-        deviceName: 'My Laptop',
-        deviceType: 'desktop',
-        platform: 'linux'
+    authStrategy: 'qr'
+});
+
+client.on('ready', () => {
+    console.log('✅ ChatPulse is ready!');
+});
+
+client.on('qr_generated', () => {
+    console.log('📱 Scan QR code with WhatsApp');
+});
+
+client.on('message', async (message) => {
+    if (message.body === '!ping') {
+        await client.sendMessage(message.from, 'Pong! 🏓');
     }
 });
-    const verificationCode = '123456'; // From user input
-client.on('device_pairing_qr', (data) => {
-    console.log(`Scan QR with primary device: ${data.qrCode}`);
+
+await client.initialize();
+```
+
+### Advanced Authentication
+
+```javascript
+// Phone Number Authentication
+const client = new ChatPulse({
+    sessionName: 'phone-bot',
+    authStrategy: 'phone_number'
+});
+
+const result = await client.authenticateWithPhoneNumber('+1234567890');
+console.log('Verification sent:', result);
+
+// Email Authentication
+const emailClient = new ChatPulse({
+    sessionName: 'email-bot',
+    authStrategy: 'email'
+});
+
+const emailResult = await emailClient.authenticateWithEmail('user@example.com');
+console.log('Magic link sent:', emailResult);
+```
+
+## 📚 API Reference
+
+### ChatPulse Class
+
+#### Constructor Options
+
+```javascript
+const client = new ChatPulse({
+    sessionName: 'default',        // Session identifier
+    authStrategy: 'qr',           // 'qr', 'pairing', 'phone_number', 'email'
+    autoReconnect: true,          // Auto-reconnect on disconnect
+    maxReconnectAttempts: 10,     // Max reconnection attempts
+    logLevel: 'info',             // 'debug', 'info', 'warn', 'error'
+    rateLimitPerMinute: 60,       // Rate limit per minute
+    qrCodeOptions: {
+        terminal: true,           // Display QR in terminal
+        save: true,              // Save QR as image
+        format: 'png',           // QR image format
+        size: 'medium'           // QR size: 'small', 'medium', 'large'
+    }
 });
 ```
-    const result = await client.authenticator.verifyPhoneNumber(data.sessionId, verificationCode);
-    console.log('Verification result:', result);
+
+#### Methods
+
+```javascript
+// Initialize client
+await client.initialize();
+
+// Send text message
+await client.sendMessage(chatId, 'Hello World!');
+
+// Send button message
+await client.sendButtonMessage(chatId, 'Choose option:', [
+    { id: 'btn1', text: 'Option 1' },
+    { id: 'btn2', text: 'Option 2' }
+]);
+
+// Send list message
+await client.sendListMessage(chatId, 'Select item:', 'Menu', [
+    {
+        title: 'Section 1',
+        rows: [
+            { id: 'item1', title: 'Item 1', description: 'Description 1' }
+        ]
+    }
+]);
+
+// Authentication methods
+await client.authenticateWithPhoneNumber('+1234567890');
+await client.authenticateWithEmail('user@example.com');
+
+// Get QR code
+const qrCode = await client.getQRCode('terminal');
+
+// Connection status
+const status = client.getConnectionStatus();
+
+// Disconnect
+await client.disconnect();
+```
+
+### Events
+
+```javascript
+// Connection events
+client.on('connected', () => console.log('Connected'));
+client.on('disconnected', () => console.log('Disconnected'));
+client.on('ready', () => console.log('Ready to use'));
+
+// Authentication events
+client.on('qr_generated', (qrInfo) => console.log('QR generated'));
+client.on('authenticated', () => console.log('Authenticated'));
+client.on('pairing_code', (code) => console.log('Pairing code:', code));
+
+// Message events
+client.on('message', (message) => console.log('New message:', message));
+client.on('button_response', (response) => console.log('Button pressed:', response));
+client.on('list_response', (response) => console.log('List item selected:', response));
+
+// Error events
+client.on('error', (error) => console.error('Error:', error));
+```
+
+## 🔐 Authentication Methods
+
+### 1. QR Code Authentication (Default)
+```javascript
+const client = new ChatPulse({ authStrategy: 'qr' });
+await client.initialize();
+// Scan QR code with WhatsApp mobile app
+```
+
+### 2. Phone Number Authentication
+```javascript
+const client = new ChatPulse({ authStrategy: 'phone_number' });
+const result = await client.authenticateWithPhoneNumber('+1234567890');
+// Enter verification code received via SMS
+```
+
+### 3. Email Authentication
+```javascript
+const client = new ChatPulse({ authStrategy: 'email' });
+const result = await client.authenticateWithEmail('user@example.com');
+// Click magic link sent to email
+```
+
+### 4. Pairing Code Authentication
+```javascript
+const client = new ChatPulse({ 
+    authStrategy: 'pairing',
+    pairingNumber: '+1234567890'
+});
+await client.initialize();
+// Enter pairing code in WhatsApp mobile app
+```
+
+## 📱 Message Types
+
+### Text Messages
+```javascript
+await client.sendMessage(chatId, 'Hello World!');
+```
+
+### Button Messages
+```javascript
+await client.sendButtonMessage(chatId, 'Choose an option:', [
+    { id: 'yes', text: 'Yes' },
+    { id: 'no', text: 'No' }
+]);
+```
+
+### List Messages
+```javascript
+await client.sendListMessage(chatId, 'Select item:', 'Menu', [
+    {
+        title: 'Food',
+        rows: [
+            { id: 'pizza', title: 'Pizza', description: 'Delicious pizza' },
+            { id: 'burger', title: 'Burger', description: 'Tasty burger' }
+        ]
+    }
+]);
+```
+
+## 🛠️ Configuration
+
+### Environment Variables
+```bash
+CHATPULSE_LOG_LEVEL=debug
+CHATPULSE_SESSION_DIR=./sessions
+CHATPULSE_RATE_LIMIT=100
+```
+
+### Advanced Configuration
+```javascript
+const client = new ChatPulse({
+    sessionName: 'production-bot',
+    authStrategy: 'qr',
+    autoReconnect: true,
+    maxReconnectAttempts: 20,
+    reconnectInterval: 5000,
+    connectionTimeout: 30000,
+    rateLimitPerMinute: 100,
+    rateLimitPerHour: 2000,
+    enablePresenceUpdates: true,
+    enableReadReceipts: true,
+    enableTypingIndicator: true,
+    qrCodeOptions: {
+        terminal: true,
+        save: true,
+        format: 'png',
+        size: 'large'
+    }
 });
 ```
+
+## 🔧 Examples
+
+Run the included examples:
+
+```bash
+# Basic example
+npm run basic
+
+# Advanced example with all features
+npm run advanced
+
+# Test connection
+npm run test
+```
+
+## 📋 Requirements
+
+- Node.js 16.0.0 or higher
+- WhatsApp account
+- Internet connection
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 👨‍💻 Author
+
+**DarkWinzo**
+- GitHub: [@DarkWinzo](https://github.com/DarkWinzo)
+- Email: isurulakshan9998@gmail.com
+
+## 🏢 Organization
+
+**DarkSide Developer Team**
+- GitHub: [@DarkSide-Developers](https://github.com/DarkSide-Developers)
+- Repository: [ChatPulse](https://github.com/DarkSide-Developers/ChatPulse)
+
+## ⭐ Support
+
+If you find this project helpful, please give it a star ⭐ on GitHub!
+
+---
+
+© 2025 DarkSide Developer Team. All rights reserved.
