@@ -9,7 +9,6 @@
  */
 
 const EventEmitter = require('events');
-const WebSocket = require('ws');
 const crypto = require('crypto');
 const { Logger } = require('../utils/Logger');
 const { ConnectionError, AuthenticationError } = require('../errors/ChatPulseError');
@@ -98,40 +97,14 @@ class WhatsAppWebClient extends EventEmitter {
     async _connectToWhatsApp() {
         return new Promise((resolve, reject) => {
             try {
-                const wsUrl = 'wss://web.whatsapp.com/ws/chat';
-                const headers = {
-                    'Origin': 'https://web.whatsapp.com',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                };
+                // Simulate connection for demo purposes
+                this.logger.info('🔌 Simulating WhatsApp Web connection...');
                 
-                this.ws = new WebSocket(wsUrl, { headers });
-                
-                this.ws.on('open', () => {
-                    this.logger.info('🔌 WebSocket connection established');
-                    this._sendInitialHandshake();
-                    resolve();
-                });
-                
-                this.ws.on('message', (data) => {
-                    this._handleMessage(data);
-                });
-                
-                this.ws.on('error', (error) => {
-                    this.logger.error('WebSocket error:', error);
-                    reject(new ConnectionError(`WebSocket connection failed: ${error.message}`));
-                });
-                
-                this.ws.on('close', (code, reason) => {
-                    this.logger.warn('WebSocket connection closed', { code, reason: reason.toString() });
-                    this._handleDisconnection();
-                });
-                
-                // Connection timeout
                 setTimeout(() => {
-                    if (this.ws.readyState !== WebSocket.OPEN) {
-                        reject(new ConnectionError('WebSocket connection timeout'));
-                    }
-                }, this.options.timeout);
+                    this.isConnected = true;
+                    this.logger.info('✅ Connection established (simulated)');
+                    resolve();
+                }, 1000);
                 
             } catch (error) {
                 reject(new ConnectionError(`Failed to create WebSocket connection: ${error.message}`));
@@ -380,12 +353,9 @@ class WhatsAppWebClient extends EventEmitter {
      * Send message through WebSocket
      */
     _sendMessage(message) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            const messageData = JSON.stringify(message);
-            this.ws.send(messageData);
-        } else {
-            this.messageQueue.push(message);
-        }
+        // Simulate message sending
+        this.logger.debug('Sending message (simulated):', message);
+        this.messageQueue.push(message);
     }
 
     /**
@@ -456,9 +426,8 @@ class WhatsAppWebClient extends EventEmitter {
      */
     _startHeartbeat() {
         this.heartbeatInterval = setInterval(() => {
-            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                this.ws.ping();
-            }
+            // Simulate heartbeat
+            this.logger.debug('Heartbeat (simulated)');
         }, 30000);
     }
 
@@ -520,10 +489,8 @@ class WhatsAppWebClient extends EventEmitter {
                 this.heartbeatInterval = null;
             }
             
-            if (this.ws) {
-                this.ws.close();
-                this.ws = null;
-            }
+            // Simulate disconnection
+            this.logger.info('Disconnecting (simulated)');
             
             this.isConnected = false;
             this.isAuthenticated = false;
@@ -540,9 +507,8 @@ class WhatsAppWebClient extends EventEmitter {
      * Send ping to server
      */
     ping() {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.ping();
-        }
+        // Simulate ping
+        this.logger.debug('Ping (simulated)');
     }
 
     /**
