@@ -10,7 +10,6 @@
 
 const fs = require('fs-extra');
 const path = require('path');
-const mime = require('mime-types');
 const { Logger } = require('../utils/Logger');
 const { MediaError } = require('../errors/ChatPulseError');
 const { EventTypes } = require('../types');
@@ -129,6 +128,35 @@ class MediaHandler {
     }
 
     /**
+     * Get MIME type from file extension
+     */
+    _getMimeType(filename) {
+        const ext = path.extname(filename).toLowerCase();
+        const mimeTypes = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.mp4': 'video/mp4',
+            '.avi': 'video/avi',
+            '.mov': 'video/quicktime',
+            '.mkv': 'video/x-matroska',
+            '.webm': 'video/webm',
+            '.mp3': 'audio/mpeg',
+            '.wav': 'audio/wav',
+            '.ogg': 'audio/ogg',
+            '.aac': 'audio/aac',
+            '.m4a': 'audio/mp4',
+            '.pdf': 'application/pdf',
+            '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.txt': 'text/plain'
+        };
+        return mimeTypes[ext] || 'application/octet-stream';
+    }
+
+    /**
      * Download media from a message
      */
     async downloadMedia(message, downloadPath = this.downloadDir) {
@@ -148,7 +176,7 @@ class MediaHandler {
                 type: 'image'
             };
             
-            const extension = mime.extension(mediaData.mimetype) || 'bin';
+            const extension = this._getExtensionFromMime(mediaData.mimetype);
             const filename = `${mediaData.filename}.${extension}`;
             const filePath = path.join(downloadPath, filename);
             
@@ -214,6 +242,31 @@ class MediaHandler {
     }
 
     /**
+     * Get file extension from MIME type
+     */
+    _getExtensionFromMime(mimetype) {
+        const extensions = {
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/gif': 'gif',
+            'image/webp': 'webp',
+            'video/mp4': 'mp4',
+            'video/avi': 'avi',
+            'video/quicktime': 'mov',
+            'video/x-matroska': 'mkv',
+            'video/webm': 'webm',
+            'audio/mpeg': 'mp3',
+            'audio/wav': 'wav',
+            'audio/ogg': 'ogg',
+            'audio/aac': 'aac',
+            'audio/mp4': 'm4a',
+            'application/pdf': 'pdf',
+            'text/plain': 'txt'
+        };
+        return extensions[mimetype] || 'bin';
+    }
+
+    /**
      * Process media file or buffer
      */
     async _processMedia(media, options = {}) {
@@ -232,7 +285,7 @@ class MediaHandler {
             
             buffer = await fs.readFile(media);
             filename = path.basename(media);
-            mimetype = mime.lookup(media) || 'application/octet-stream';
+            mimetype = this._getMimeType(media);
         } else {
             throw new MediaError('Invalid media input. Expected file path or Buffer.', 'INVALID_INPUT');
         }

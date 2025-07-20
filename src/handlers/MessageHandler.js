@@ -387,37 +387,46 @@ class MessageHandler {
                 return;
             }
             
+            // Deep clone message to avoid mutation issues
+            let processedMessage;
+            try {
+                processedMessage = JSON.parse(JSON.stringify(message));
+            } catch (cloneError) {
+                this.logger.warn('Failed to clone message, using original:', cloneError);
+                processedMessage = message;
+            }
+            
             // Ensure required properties exist
-            if (!message.id) {
-                message.id = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            if (!processedMessage.id) {
+                processedMessage.id = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             }
             
-            if (!message.timestamp) {
-                message.timestamp = Date.now();
+            if (!processedMessage.timestamp) {
+                processedMessage.timestamp = Date.now();
             }
             
-            if (!message.from) {
-                this.logger.warn('Message missing from field:', message);
-                message.from = 'unknown@c.us';
+            if (!processedMessage.from) {
+                this.logger.warn('Message missing from field:', processedMessage);
+                processedMessage.from = 'unknown@c.us';
             }
             
-            if (typeof message.isFromMe !== 'boolean') {
-                message.isFromMe = false;
+            if (typeof processedMessage.isFromMe !== 'boolean') {
+                processedMessage.isFromMe = false;
             }
             
             const enhancedMessage = {
-                ...message,
-                type: message.type || 'text',
-                body: message.body || message.conversation || '',
-                isButton: message.type === 'buttons_response',
-                isList: message.type === 'list_response',
-                isPoll: message.type === 'poll_update',
-                isContact: message.type === 'vcard',
-                isLocation: message.type === 'location',
-                isMedia: this._hasMedia(message),
-                hasQuotedMsg: !!message.quotedMsg,
-                hasMentions: message.mentionedJidList && message.mentionedJidList.length > 0,
-                mentionedJidList: message.mentionedJidList || []
+                ...processedMessage,
+                type: processedMessage.type || 'text',
+                body: processedMessage.body || processedMessage.conversation || '',
+                isButton: processedMessage.type === 'buttons_response',
+                isList: processedMessage.type === 'list_response',
+                isPoll: processedMessage.type === 'poll_update',
+                isContact: processedMessage.type === 'vcard',
+                isLocation: processedMessage.type === 'location',
+                isMedia: this._hasMedia(processedMessage),
+                hasQuotedMsg: !!processedMessage.quotedMsg,
+                hasMentions: processedMessage.mentionedJidList && processedMessage.mentionedJidList.length > 0,
+                mentionedJidList: processedMessage.mentionedJidList || []
             };
 
             // Emit main message event
@@ -469,7 +478,7 @@ class MessageHandler {
             try {
                 this.client.emit('message_error', {
                     error: error.message,
-                    originalMessage: message,
+                    originalMessage: message || {},
                     timestamp: Date.now()
                 });
             } catch (emitError) {

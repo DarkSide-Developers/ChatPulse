@@ -108,6 +108,10 @@ class ProtocolHandler {
      */
     _parseProtobufMessage(buffer) {
         try {
+            // For now, always use fallback parsing since protobuf is not implemented
+            return this._parseRawMessage(buffer);
+            
+            /* TODO: Implement when protobuf support is added
             if (!this.client.protocolRoot) {
                 // Fallback parsing
                 return this._parseRawMessage(buffer);
@@ -121,6 +125,7 @@ class ProtocolHandler {
                 enums: String,
                 bytes: String
             });
+            */
 
         } catch (error) {
             this.logger.warn('Protobuf parsing failed, using fallback:', error);

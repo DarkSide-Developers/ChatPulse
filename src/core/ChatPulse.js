@@ -236,7 +236,9 @@ class ChatPulse extends EventEmitter {
         try {
             const sessionData = await this.sessionManager.loadSessionData('auth');
             if (sessionData && sessionData.authenticated) {
-                await this.webClient.initialize();
+                if (!this.webClient.isConnected) {
+                    await this.webClient.initialize();
+                }
                 const isValid = await this.webClient.validateSession();
                 
                 if (isValid) {
@@ -289,7 +291,9 @@ class ChatPulse extends EventEmitter {
     _handleDisconnection() {
         if (this.state.connection === ConnectionStates.DISCONNECTED) return;
         
+        this.logger.info('🔌 Handling disconnection...');
         this._setState('connection', ConnectionStates.DISCONNECTED);
+        this._setState('ready', false);
         this.emit(EventTypes.DISCONNECTED);
         
         if (this.options.autoReconnect && this.state.authenticated) {
@@ -298,18 +302,31 @@ class ChatPulse extends EventEmitter {
     }
 
     _scheduleReconnect() {
+        if (this.state.reconnectAttempts >= this.options.maxReconnectAttempts) {
+            this.logger.error('❌ Maximum reconnection attempts reached');
+            this.emit('max_reconnect_attempts_reached');
+            return;
+        }
+        
         const delay = Math.min(5000 * Math.pow(2, this.state.reconnectAttempts), 60000);
         this.state.reconnectAttempts++;
+        
+        this.logger.info(`🔄 Scheduling reconnection attempt ${this.state.reconnectAttempts} in ${delay}ms`);
         
         setTimeout(async () => {
             try {
                 this._setState('connection', ConnectionStates.RECONNECTING);
                 this.emit(EventTypes.RECONNECTING);
-                await this.connect();
+                await this.initialize();
                 this.state.reconnectAttempts = 0;
+                this.logger.info('✅ Reconnection successful');
             } catch (error) {
-                if (this.state.reconnectAttempts < 10) {
+                this.logger.error('❌ Reconnection failed:', error);
+                if (this.state.reconnectAttempts < this.options.maxReconnectAttempts) {
                     this._scheduleReconnect();
+                } else {
+                    this.logger.error('❌ All reconnection attempts failed');
+                    this.emit('reconnection_failed');
                 }
             }
         }, delay);

@@ -40,6 +40,10 @@ class Logger {
                 level: (label) => {
                     return { level: label.toUpperCase() };
                 }
+            },
+            // Disable file descriptors to prevent issues
+            base: {
+                pid: process.pid
             }
         };
 
@@ -53,15 +57,17 @@ class Logger {
             if (process.env.NODE_ENV !== 'production') {
                 try {
                     // Only use pino-pretty if it's available
-                    require.resolve('pino-pretty');
-                    loggerConfig.transport = {
-                        target: 'pino-pretty',
-                        options: {
-                            colorize: true,
-                            translateTime: 'SYS:standard',
-                            ignore: 'pid,hostname'
-                        }
-                    };
+                    const pinoPretty = require.resolve('pino-pretty');
+                    if (pinoPretty) {
+                        loggerConfig.transport = {
+                            target: 'pino-pretty',
+                            options: {
+                                colorize: true,
+                                translateTime: 'SYS:standard',
+                                ignore: 'pid,hostname'
+                            }
+                        };
+                    }
                 } catch (error) {
                     // pino-pretty not available, use default console output
                     // No transport needed for basic console output

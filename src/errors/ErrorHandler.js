@@ -235,16 +235,33 @@ class ErrorHandler {
         // Connection error recovery
         this.recoveryStrategies.set(ErrorTypes.CONNECTION_ERROR, async (error, context, client) => {
             if (client.options.autoReconnect) {
+                this.logger.info('🔄 Attempting connection recovery...');
                 await this._delay(client.options.reconnectInterval || 5000);
-                return await client._attemptReconnection();
+                try {
+                    await client.initialize();
+                    return true;
+                } catch (recoveryError) {
+                    this.logger.error('Connection recovery failed:', recoveryError);
+                    return false;
+                }
             }
             return false;
         });
         
         // Network error recovery
         this.recoveryStrategies.set(ErrorTypes.NETWORK_ERROR, async (error, context, client) => {
+            this.logger.info('🌐 Attempting network recovery...');
             await this._delay(2000);
-            return await client._checkNetworkConnectivity();
+            // Simple network check - try to reconnect
+            try {
+                if (client.webClient && !client.webClient.isConnected) {
+                    await client.webClient.initialize();
+                }
+                return true;
+            } catch (networkError) {
+                this.logger.error('Network recovery failed:', networkError);
+                return false;
+            }
         });
         
         // Timeout error recovery

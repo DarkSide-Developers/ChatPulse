@@ -11,7 +11,6 @@
 const EventEmitter = require('events');
 const WebSocket = require('ws');
 const crypto = require('crypto');
-const fetch = require('node-fetch');
 const { Logger } = require('../utils/Logger');
 const { ConnectionError, AuthenticationError } = require('../errors/ChatPulseError');
 const { ConnectionStates, EventTypes } = require('../types');
@@ -467,6 +466,7 @@ class WhatsAppWebClient extends EventEmitter {
      * Handle disconnection
      */
     _handleDisconnection() {
+        this.logger.info('🔌 WebSocket disconnection detected');
         this.isConnected = false;
         this.isAuthenticated = false;
         this.connectionState = ConnectionStates.DISCONNECTED;
@@ -479,8 +479,10 @@ class WhatsAppWebClient extends EventEmitter {
         this.emit('disconnected');
         
         // Auto-reconnect if enabled
-        if (this.reconnectAttempts < this.options.maxReconnectAttempts) {
+        if (this.options.autoReconnect && this.reconnectAttempts < this.options.maxReconnectAttempts) {
             this._scheduleReconnect();
+        } else if (this.reconnectAttempts >= this.options.maxReconnectAttempts) {
+            this.logger.error('❌ Maximum WebSocket reconnection attempts reached');
         }
     }
 
@@ -491,12 +493,19 @@ class WhatsAppWebClient extends EventEmitter {
         this.reconnectAttempts++;
         const delay = this.options.reconnectInterval * this.reconnectAttempts;
         
+        this.logger.info(`🔄 Scheduling WebSocket reconnection attempt ${this.reconnectAttempts} in ${delay}ms`);
+        
         setTimeout(async () => {
             try {
+                this.logger.info('🔄 Attempting WebSocket reconnection...');
                 await this.initialize();
                 this.reconnectAttempts = 0;
+                this.logger.info('✅ WebSocket reconnection successful');
             } catch (error) {
-                this.logger.error('Reconnection failed:', error);
+                this.logger.error('❌ WebSocket reconnection failed:', error);
+                if (this.reconnectAttempts < this.options.maxReconnectAttempts) {
+                    this._scheduleReconnect();
+                }
             }
         }, delay);
     }
