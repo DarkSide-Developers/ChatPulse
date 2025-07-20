@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const { Logger } = require('../utils/Logger');
 const { ConnectionError, AuthenticationError } = require('../errors/ChatPulseError');
 const { ConnectionStates, EventTypes } = require('../types');
+const { PairingHandler } = require('../handlers/PairingHandler');
 
 /**
  * Advanced WhatsApp Web Client using WebSocket and direct API
@@ -43,6 +44,7 @@ class WhatsAppWebClient extends EventEmitter {
         this.heartbeatInterval = null;
         this.messageQueue = [];
         this.pendingRequests = new Map();
+        this.pairingHandler = new PairingHandler(this);
     }
 
     /**
@@ -288,14 +290,18 @@ class WhatsAppWebClient extends EventEmitter {
     async generateQRCode() {
         try {
             if (!this.isConnected) {
-                throw new Error('Client not connected');
+                // Auto-connect if not connected
+                await this.initialize();
             }
             
             const qrData = this._generateQRData();
-            this.emit('qr_code', {
+            
+            // Emit QR code event
+            this.emit('qr_generated', {
                 data: qrData,
                 timestamp: Date.now(),
-                expires: Date.now() + 30000
+                expires: Date.now() + 30000,
+                type: 'qr'
             });
             
             return qrData;
@@ -311,8 +317,6 @@ class WhatsAppWebClient extends EventEmitter {
     _generateQRData() {
         const timestamp = Date.now();
         const random = crypto.randomBytes(16).toString('hex');
-        
-        // Generate a mock public key for demo purposes
         const mockPublicKey = crypto.randomBytes(32).toString('base64');
         
         return `2@${timestamp},${random},${mockPublicKey},${this.clientId}`;
@@ -324,20 +328,23 @@ class WhatsAppWebClient extends EventEmitter {
     async requestPairingCode(phoneNumber) {
         try {
             if (!this.isConnected) {
-                throw new Error('Client not connected');
+                // Auto-connect if not connected
+                await this.initialize();
             }
             
-            const pairingCode = this._generatePairingCode();
+            // Use the pairing handler
+            const result = await this.pairingHandler.requestPairingCode(phoneNumber);
             
-            // Send pairing request
-            this._sendMessage(['admin', 'pair', {
-                phoneNumber: phoneNumber,
-                pairingCode: pairingCode,
-                clientId: this.clientId
-            }]);
+            // Emit pairing code event
+            this.emit('pairing_code', {
+                pairingCode: result.pairingCode,
+                phoneNumber: result.phoneNumber,
+                pairingId: result.pairingId,
+                expires: result.expires,
+                type: 'pairing'
+            });
             
-            this.logger.info('Pairing code requested', { phoneNumber });
-            return pairingCode;
+            return result.pairingCode;
             
         } catch (error) {
             throw new AuthenticationError(`Pairing code request failed: ${error.message}`);
@@ -345,10 +352,39 @@ class WhatsAppWebClient extends EventEmitter {
     }
 
     /**
-     * Generate pairing code
+     * Verify pairing code
      */
-    _generatePairingCode() {
-        return crypto.randomBytes(4).toString('hex').toUpperCase();
+    async verifyPairingCode(pairingId, enteredCode) {
+        return await this.pairingHandler.verifyPairingCode(pairingId, enteredCode);
+    }
+
+    /**
+     * Complete pairing process
+     */
+    async completePairing(pairingId) {
+        const result = await this.pairingHandler.completePairing(pairingId);
+        
+        if (result.success) {
+            this.isAuthenticated = true;
+            this.connectionState = ConnectionStates.READY;
+            this.emit('authenticated', result);
+        }
+        
+        return result;
+    }
+
+    /**
+     * Get active pairing sessions
+     */
+    getActivePairings() {
+        return this.pairingHandler.getActivePairings();
+    }
+
+    /**
+     * Cancel pairing session
+     */
+    cancelPairing(pairingId) {
+        return this.pairingHandler.cancelPairing(pairingId);
     }
 
     /**

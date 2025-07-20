@@ -50,6 +50,30 @@ client.on('message', async (message) => {
     }
 });
 
+const { ChatPulse } = require('chatpulse');
+
+const client = new ChatPulse({
+    sessionName: 'my-bot',
+    authStrategy: 'pairing'
+});
+
+// Method 1: Auto-pairing (set phone number in options)
+const client = new ChatPulse({
+    sessionName: 'my-bot',
+    authStrategy: 'pairing',
+    pairingNumber: '1234567890'
+});
+
+// Method 2: Manual pairing
+client.on('ready', async () => {
+    const pairingCode = await client.requestPairingCode('1234567890');
+    console.log('Pairing Code:', pairingCode);
+});
+
+client.on('pairing_code', (pairingInfo) => {
+    console.log('Enter this code in WhatsApp:', pairingInfo.pairingCode);
+});
+
 await client.initialize();
 ```
 
@@ -174,6 +198,9 @@ npm run example:advanced
 # Smart bot with multiple features
 npm run example:bot
 
+# Pairing authentication example
+npm run example:pairing
+
 # Test functionality
 npm test
 ```
@@ -183,6 +210,7 @@ npm test
 - `examples/basic.js` - Simple bot with basic commands
 - `examples/advanced.js` - Advanced bot with buttons and lists  
 - `examples/bot.js` - Smart bot with multiple features
+- `examples/pairing.js` - Phone number pairing authentication
 - `examples/test.js` - Test ChatPulse functionality
 
 ## 📋 Requirements

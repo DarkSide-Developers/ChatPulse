@@ -71,7 +71,7 @@ class QRHandler {
             
             // Display in terminal if requested
             if (qrOptions.terminal) {
-                await this._displayInTerminal(qrData, qrOptions);
+                this._displayInTerminal(qrData, qrOptions);
             }
             
             // Save as image if requested
@@ -79,7 +79,7 @@ class QRHandler {
                 try {
                     savedPath = await this._saveAsImage(qrData, qrOptions);
                 } catch (error) {
-                    this.logger.warn('Failed to save QR image, continuing without saving:', error.message);
+                    this.logger.warn('Failed to save QR image:', error.message);
                 }
             }
             
@@ -99,7 +99,8 @@ class QRHandler {
                 size: qrOptions.size,
                 saved: qrOptions.save,
                 savedPath: savedPath,
-                dataURL: dataURL
+                dataURL: dataURL,
+                expires: Date.now() + 30000 // 30 seconds
             };
             
             this.logger.info('✅ QR code generated successfully');
@@ -112,37 +113,32 @@ class QRHandler {
     }
 
     /**
-     * Display QR code in terminal
+     * Display QR code in terminal with better formatting
      */
-    async _displayInTerminal(qrData, options) {
+    _displayInTerminal(qrData, options) {
         try {
-            const terminalOptions = {
-                small: options.size === 'small',
-                errorCorrectionLevel: 'M'
-            };
+            console.log('\n' + '='.repeat(60));
+            console.log('📱 SCAN QR CODE WITH WHATSAPP MOBILE APP');
+            console.log('='.repeat(60));
+            console.log('');
             
-            console.log('\n📱 Scan this QR code with your WhatsApp mobile app:\n');
-            
-            // Use callback version to handle errors properly
-            return new Promise((resolve, reject) => {
-                try {
-                    qrTerminal.generate(qrData, terminalOptions, (qr) => {
-                        console.log(qr);
-                        resolve();
-                    });
-                } catch (error) {
-                    // Fallback to simple generation
-                    qrTerminal.generate(qrData, terminalOptions);
-                    resolve();
-                }
+            // Generate QR code for terminal with proper options
+            qrTerminal.generate(qrData, { 
+                small: options.size === 'small' 
             });
-            console.log('\n⏰ QR code will refresh automatically every 30 seconds\n');
+            
+            console.log('');
+            console.log('⏰ QR code expires in 30 seconds');
+            console.log('🔄 A new QR code will be generated automatically');
+            console.log('='.repeat(60));
+            console.log('');
             
         } catch (error) {
             this.logger.error('Failed to display QR in terminal:', error);
-            // Fallback: just log the QR data
-            console.log('\n📱 QR Code Data:', qrData);
-            console.log('Please use a QR code reader app to scan this data\n');
+            // Fallback display
+            console.log('\n📱 QR Code Data (scan with QR reader):');
+            console.log(qrData);
+            console.log('');
         }
     }
 
@@ -157,8 +153,6 @@ class QRHandler {
             
             const qrCodeOptions = {
                 errorCorrectionLevel: options.errorCorrectionLevel,
-                type: options.format === 'svg' ? 'svg' : 'png',
-                quality: 0.92,
                 margin: options.margin,
                 color: options.color,
                 width: this._getSizeInPixels(options.size)
@@ -171,24 +165,11 @@ class QRHandler {
                 });
                 await fs.writeFile(filepath, svgString);
             } else {
-                // Generate PNG and optionally convert to other formats
-                const buffer = await QRCode.toBuffer(qrData, {
+                // Generate PNG
+                await QRCode.toFile(filepath, qrData, {
                     ...qrCodeOptions,
                     type: 'png'
                 });
-                
-                if (options.format === 'png') {
-                    await fs.writeFile(filepath, buffer);
-                } else {
-                    // For now, only support PNG format
-                    if (options.format !== 'png') {
-                        this.logger.warn(`Format ${options.format} not supported, saving as PNG`);
-                        const pngPath = filepath.replace(/\.[^/.]+$/, '.png');
-                        await fs.writeFile(pngPath, buffer);
-                        return pngPath;
-                    }
-                    await fs.writeFile(filepath, buffer);
-                }
             }
             
             this.logger.info(`QR code saved: ${filepath}`);
@@ -196,7 +177,6 @@ class QRHandler {
             
         } catch (error) {
             this.logger.error('Failed to save QR code:', error);
-            // Don't throw error, just log it and continue
             return null;
         }
     }
@@ -222,32 +202,36 @@ class QRHandler {
     }
 
     /**
-     * Read QR code from image file
+     * Get QR code in specified format
      */
-    async readQRCode(imagePath) {
+    async getQRCode(format = 'terminal') {
         try {
-            this.logger.info('📖 Reading QR code from image...');
-            
-            if (!await fs.pathExists(imagePath)) {
-                throw new Error(`Image file not found: ${imagePath}`);
+            if (!this.currentQR) {
+                throw new Error('No QR code available');
             }
             
-            // Simplified QR reading - return mock data for now
-            // TODO: Implement proper QR reading when sharp/jsQR dependencies are available
-            const mockQRData = '2@1234567890,abcdef123456,base64encodedkey,clientid';
+            const qrData = this.currentQR.data;
             
-            this.logger.info('✅ QR code read successfully');
-            
-            return {
-                data: mockQRData,
-                location: { topLeftCorner: { x: 0, y: 0 } },
-                version: 1,
-                errorCorrectionLevel: 'M'
-            };
+            switch (format) {
+                case 'terminal':
+                    this._displayInTerminal(qrData, this.currentQR.options);
+                    return qrData;
+                    
+                case 'dataurl':
+                    return await this._generateDataURL(qrData, this.currentQR.options);
+                    
+                case 'buffer':
+                    return await QRCode.toBuffer(qrData);
+                    
+                case 'svg':
+                    return await QRCode.toString(qrData, { type: 'svg' });
+                    
+                default:
+                    return qrData;
+            }
             
         } catch (error) {
-            this.logger.error('❌ Failed to read QR code:', error);
-            throw new AuthenticationError(`QR reading failed: ${error.message}`, 'QR_READ_FAILED', { error });
+            throw new AuthenticationError(`Failed to get QR code: ${error.message}`, 'QR_GET_FAILED', { error });
         }
     }
 
@@ -275,27 +259,6 @@ class QRHandler {
                 }
             }
             
-            // ChatPulse device pairing format
-            if (qrData.startsWith('chatpulse://device-pair')) {
-                return { 
-                    valid: true, 
-                    type: 'device_pairing',
-                    url: qrData
-                };
-            }
-            
-            // Generic URL format
-            try {
-                new URL(qrData);
-                return { 
-                    valid: true, 
-                    type: 'url',
-                    url: qrData
-                };
-            } catch {
-                // Not a valid URL
-            }
-            
             return { 
                 valid: true, 
                 type: 'text',
@@ -308,67 +271,6 @@ class QRHandler {
                 reason: error.message 
             };
         }
-    }
-
-    /**
-     * Display QR code with enhanced options
-     */
-    async displayQRCode(qrData, options = {}) {
-        return await this.generateQRCode(qrData, options);
-    }
-
-    /**
-     * Get QR code in specified format
-     */
-    async getQRCode(format = 'terminal') {
-        try {
-            if (!this.currentQR) {
-                throw new Error('No QR code available');
-            }
-            
-            const qrData = this.currentQR.data;
-            
-            switch (format) {
-                case 'terminal':
-                    qrTerminal.generate(qrData, { small: true });
-                    return qrData;
-                    
-                case 'dataurl':
-                    return await this._generateDataURL(qrData, this.currentQR.options);
-                    
-                case 'buffer':
-                    return await QRCode.toBuffer(qrData);
-                    
-                case 'svg':
-                    return await QRCode.toString(qrData, { type: 'svg' });
-                    
-                default:
-                    return qrData;
-            }
-            
-        } catch (error) {
-            throw new AuthenticationError(`Failed to get QR code: ${error.message}`, 'QR_GET_FAILED', { error });
-        }
-    }
-
-    /**
-     * Get QR code history
-     */
-    getQRHistory() {
-        return this.qrHistory.map(qr => ({
-            timestamp: qr.timestamp,
-            data: qr.data.substring(0, 50) + '...',
-            format: qr.options.format,
-            size: qr.options.size
-        }));
-    }
-
-    /**
-     * Clear QR code history
-     */
-    clearHistory() {
-        this.qrHistory = [];
-        this.logger.info('QR code history cleared');
     }
 
     /**
@@ -430,6 +332,10 @@ class QRHandler {
      */
     async cleanup() {
         try {
+            if (!await fs.pathExists(this.qrDir)) {
+                return;
+            }
+            
             const files = await fs.readdir(this.qrDir);
             const now = Date.now();
             const maxAge = 24 * 60 * 60 * 1000; // 24 hours

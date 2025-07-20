@@ -9,6 +9,7 @@
     "example:basic": "node examples/basic.js",
     "example:advanced": "node examples/advanced.js",
     "example:bot": "node examples/bot.js",
+    "example:pairing": "node examples/pairing.js",
     "test": "node examples/test.js",
     "lint": "eslint src/ examples/ --ext .js",
     "lint:fix": "eslint src/ examples/ --ext .js --fix"
@@ -35,13 +36,13 @@
     "url": "https://github.com/DarkSide-Developers/ChatPulse/issues"
   },
   "dependencies": {
-    "qrcode": "^1.5.3",
-    "qrcode-terminal": "^0.12.0",
-    "pino": "^8.16.1",
+    "crypto-js": "^4.2.0",
     "fs-extra": "^11.1.1",
     "libphonenumber-js": "^1.10.51",
-    "crypto-js": "^4.2.0",
-    "mime-types": "^2.1.35"
+    "mime-types": "^2.1.35",
+    "pino": "^8.16.1",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0"
   },
   "devDependencies": {
     "eslint": "^8.55.0",

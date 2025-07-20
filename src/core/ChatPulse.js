@@ -135,8 +135,127 @@ class ChatPulse extends EventEmitter {
         }
     }
 
+    async sendButtonMessage(chatId, text, buttons, options = {}) {
+        try {
+            const validatedChatId = this.validator.validate(chatId, 'chatId');
+            const validatedButtons = this.validator.validate(buttons, 'buttons');
+            
+            if (!this.isReady) {
+                throw new ChatPulseError('ChatPulse is not ready');
+            }
+            
+            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendButtonMessage');
+            
+            return await this.messageHandler.sendButtonMessage(
+                validatedChatId.formatted,
+                text,
+                validatedButtons.buttons,
+                options
+            );
+        } catch (error) {
+            await this.errorHandler.handleError(error, { chatId, text, buttons, options });
+            throw error;
+        }
+    }
+
+    async sendListMessage(chatId, text, buttonText, sections, options = {}) {
+        try {
+            const validatedChatId = this.validator.validate(chatId, 'chatId');
+            const validatedSections = this.validator.validate(sections, 'listSections');
+            
+            if (!this.isReady) {
+                throw new ChatPulseError('ChatPulse is not ready');
+            }
+            
+            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendListMessage');
+            
+            return await this.messageHandler.sendListMessage(
+                validatedChatId.formatted,
+                text,
+                buttonText,
+                validatedSections.sections,
+                options
+            );
+        } catch (error) {
+            await this.errorHandler.handleError(error, { chatId, text, buttonText, sections, options });
+            throw error;
+        }
+    }
+
+    async sendContact(chatId, contact, options = {}) {
+        try {
+            const validatedChatId = this.validator.validate(chatId, 'chatId');
+            const validatedContact = this.validator.validate(contact, 'contact');
+            
+            if (!this.isReady) {
+                throw new ChatPulseError('ChatPulse is not ready');
+            }
+            
+            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendContact');
+            
+            return await this.messageHandler.sendContact(
+                validatedChatId.formatted,
+                validatedContact.contact,
+                options
+            );
+        } catch (error) {
+            await this.errorHandler.handleError(error, { chatId, contact, options });
+            throw error;
+        }
+    }
+
+    async sendLocation(chatId, latitude, longitude, description = '', options = {}) {
+        try {
+            const validatedChatId = this.validator.validate(chatId, 'chatId');
+            const validatedCoords = this.validator.validate({ lat: latitude, lng: longitude }, 'coordinates');
+            
+            if (!this.isReady) {
+                throw new ChatPulseError('ChatPulse is not ready');
+            }
+            
+            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendLocation');
+            
+            return await this.messageHandler.sendLocation(
+                validatedChatId.formatted,
+                validatedCoords.latitude,
+                validatedCoords.longitude,
+                description,
+                options
+            );
+        } catch (error) {
+            await this.errorHandler.handleError(error, { chatId, latitude, longitude, description, options });
+            throw error;
+        }
+    }
+
+    async sendPoll(chatId, question, options, settings = {}) {
+        try {
+            const validatedChatId = this.validator.validate(chatId, 'chatId');
+            
+            if (!this.isReady) {
+                throw new ChatPulseError('ChatPulse is not ready');
+            }
+            
+            this.rateLimiter.checkLimit(validatedChatId.formatted, 'sendPoll');
+            
+            return await this.messageHandler.sendPoll(
+                validatedChatId.formatted,
+                question,
+                options,
+                settings
+            );
+        } catch (error) {
+            await this.errorHandler.handleError(error, { chatId, question, options, settings });
+            throw error;
+        }
+    }
     async authenticateWithPhoneNumber(phoneNumber, options = {}) {
-        return await this.authenticator.authenticateWithPhoneNumber(phoneNumber, options);
+        try {
+            return await this.webClient.requestPairingCode(phoneNumber);
+        } catch (error) {
+            await this.errorHandler.handleError(error, { phoneNumber, options });
+            throw error;
+        }
     }
 
     async authenticateWithEmail(email, options = {}) {
@@ -144,7 +263,47 @@ class ChatPulse extends EventEmitter {
     }
 
     async getQRCode(format = 'terminal') {
-        return await this.qrHandler.getQRCode(format);
+        try {
+            return await this.qrHandler.getQRCode(format);
+        } catch (error) {
+            await this.errorHandler.handleError(error, { format });
+            throw error;
+        }
+    }
+
+    async requestPairingCode(phoneNumber) {
+        try {
+            return await this.webClient.requestPairingCode(phoneNumber);
+        } catch (error) {
+            await this.errorHandler.handleError(error, { phoneNumber });
+            throw error;
+        }
+    }
+
+    async verifyPairingCode(pairingId, enteredCode) {
+        try {
+            return await this.webClient.verifyPairingCode(pairingId, enteredCode);
+        } catch (error) {
+            await this.errorHandler.handleError(error, { pairingId, enteredCode });
+            throw error;
+        }
+    }
+
+    async completePairing(pairingId) {
+        try {
+            return await this.webClient.completePairing(pairingId);
+        } catch (error) {
+            await this.errorHandler.handleError(error, { pairingId });
+            throw error;
+        }
+    }
+
+    getActivePairings() {
+        return this.webClient.getActivePairings();
+    }
+
+    cancelPairing(pairingId) {
+        return this.webClient.cancelPairing(pairingId);
     }
 
     getConnectionStatus() {
