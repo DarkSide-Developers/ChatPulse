@@ -113,32 +113,72 @@ class QRHandler {
     }
 
     /**
+     * Generate and display QR code with multiple format support
+     */
+    async displayQRCode(qrData, options = {}) {
+        try {
+            const qrOptions = {
+                terminal: options.terminal !== false,
+                save: options.save !== false,
+                format: options.format || 'png',
+                size: options.size || 'medium',
+                ...options
+            };
+            
+            let savedPath = null;
+            
+            // Display in terminal if requested
+            if (qrOptions.terminal) {
+                this._displayInTerminal(qrData, qrOptions);
+            }
+            
+            // Save as image if requested
+            if (qrOptions.save) {
+                try {
+                    savedPath = await this._saveAsImage(qrData, qrOptions);
+                } catch (error) {
+                    this.logger.warn('Failed to save QR image:', error.message);
+                }
+            }
+            
+            return {
+                data: qrData,
+                timestamp: Date.now(),
+                format: qrOptions.format,
+                size: qrOptions.size,
+                saved: qrOptions.save,
+                savedPath: savedPath,
+                expires: Date.now() + 30000
+            };
+            
+        } catch (error) {
+            this.logger.error('Failed to display QR code:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Display QR code in terminal with better formatting
      */
     _displayInTerminal(qrData, options) {
         try {
-            console.log('\n' + '='.repeat(60));
-            console.log('📱 SCAN QR CODE WITH WHATSAPP MOBILE APP');
-            console.log('='.repeat(60));
-            console.log('');
+            console.log('\n' + '='.repeat(50));
+            console.log('📱 SCAN QR CODE WITH WHATSAPP');
+            console.log('='.repeat(50));
             
             // Generate QR code for terminal with proper options
-            qrTerminal.generate(qrData, { 
-                small: options.size === 'small' 
+            qrTerminal.generate(qrData, { small: options.size === 'small' }, (qr) => {
+                console.log(qr);
             });
             
-            console.log('');
-            console.log('⏰ QR code expires in 30 seconds');
-            console.log('🔄 A new QR code will be generated automatically');
-            console.log('='.repeat(60));
-            console.log('');
+            console.log('⏰ Expires in 30 seconds');
+            console.log('='.repeat(50));
             
         } catch (error) {
             this.logger.error('Failed to display QR in terminal:', error);
             // Fallback display
-            console.log('\n📱 QR Code Data (scan with QR reader):');
+            console.log('\n📱 QR Code (scan with QR reader):');
             console.log(qrData);
-            console.log('');
         }
     }
 

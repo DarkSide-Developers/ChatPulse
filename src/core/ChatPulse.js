@@ -46,27 +46,27 @@ class ChatPulse extends EventEmitter {
         };
         
         this._setupEventHandlers();
-        this.logger.info('ChatPulse initialized', { sessionName: this.options.sessionName });
+        this.logger.info(`🤖 ChatPulse initialized (${this.options.sessionName})`);
     }
 
     async initialize() {
         try {
-            this.logger.info('🚀 Starting ChatPulse initialization...');
+            console.log('🚀 Starting ChatPulse...');
             
             await this.sessionManager.initialize();
             
             const hasSession = await this.sessionManager.sessionExists();
             if (hasSession && this.options.restoreSession !== false) {
-                this.logger.info('📂 Restoring existing session...');
+                console.log('📂 Restoring session...');
                 await this._restoreSession();
             } else {
-                this.logger.info('🔐 Starting authentication...');
+                console.log('🔐 Starting authentication...');
                 await this._startAuthentication();
             }
             
-            this.logger.info('✅ ChatPulse initialization completed');
+            console.log('✅ ChatPulse ready!');
         } catch (error) {
-            this.logger.error('❌ Initialization failed:', error);
+            console.error('❌ Initialization failed:', error.message);
             throw error;
         }
     }
@@ -343,7 +343,7 @@ class ChatPulse extends EventEmitter {
     }
 
     async _authenticateWithQR() {
-        this.logger.info('📱 Starting QR authentication...');
+        console.log('📱 Starting QR authentication...');
         
         if (!this.webClient.isConnected) {
             await this.webClient.initialize();
@@ -351,7 +351,7 @@ class ChatPulse extends EventEmitter {
         
         try {
             const qrData = await this.webClient.generateQRCode();
-            const qrResult = await this.qrHandler.displayQRCode(qrData, this.options.qrCodeOptions);
+            const qrResult = await this.qrHandler.displayQRCode(qrData, this.options.qrCodeOptions || {});
             
             this.emit(EventTypes.QR_GENERATED, { 
                 data: qrData, 
@@ -360,16 +360,17 @@ class ChatPulse extends EventEmitter {
                 ...qrResult
             });
         } catch (error) {
-            this.logger.error('QR generation failed:', error);
+            console.warn('⚠️ QR generation failed, using fallback...');
             // Generate a fallback QR for demo
             const fallbackQR = `2@${Date.now()},demo123,mockkey,${Date.now()}`;
-            await this.qrHandler.displayQRCode(fallbackQR, this.options.qrCodeOptions);
+            const qrResult = await this.qrHandler.displayQRCode(fallbackQR, this.options.qrCodeOptions || {});
             
             this.emit(EventTypes.QR_GENERATED, { 
                 data: fallbackQR, 
                 timestamp: Date.now(),
                 expires: Date.now() + 30000,
-                fallback: true
+                fallback: true,
+                ...qrResult
             });
         }
         
@@ -379,14 +380,13 @@ class ChatPulse extends EventEmitter {
     }
 
     async _authenticateWithPairing() {
-        this.logger.info('📞 Starting pairing authentication...');
+        console.log('📞 Starting pairing authentication...');
         
         if (!this.options.pairingNumber) {
             throw new Error('Pairing number is required');
         }
         
         const pairingCode = await this.webClient.requestPairingCode(this.options.pairingNumber);
-        this.logger.info(`📱 Pairing Code: ${pairingCode}`);
         this.emit(EventTypes.PAIRING_CODE, pairingCode);
         
         await this._waitForAuthentication();

@@ -6,40 +6,39 @@
 const { ChatPulse } = require('chatpulse');
 
 async function basicExample() {
-    console.log('🚀 Starting ChatPulse Basic Example...\n');
+    console.log('🚀 ChatPulse Basic Example\n');
     
     // Create ChatPulse client
     const client = new ChatPulse({
         sessionName: 'basic-session',
-        logLevel: 'info'
+        logLevel: 'warn'  // Reduce log noise
     });
     
     // Event: When client is ready
     client.on('ready', () => {
         console.log('✅ ChatPulse is ready!');
-        console.log('📱 You can now send messages to test the bot');
+        console.log('📱 Send messages to test the bot\n');
     });
     
     // Event: When QR code is generated
     client.on('qr_generated', (qrInfo) => {
-        console.log('📱 QR Code generated! Scan with WhatsApp mobile app.');
         if (qrInfo.savedPath) {
-            console.log(`📁 QR Code saved to: ${qrInfo.savedPath}`);
+            console.log(`📁 QR saved: ${qrInfo.savedPath}`);
         }
         if (qrInfo.fallback) {
-            console.log('⚠️  Using fallback QR for demo purposes');
+            console.log('⚠️ Using demo QR code\n');
         }
     });
     
     // Event: When authenticated
     client.on('authenticated', () => {
-        console.log('🔐 Authentication successful!');
+        console.log('🔐 Authenticated successfully!\n');
     });
     
     // Event: Handle incoming messages
     client.on('message', async (message) => {
         try {
-            console.log(`📨 Message from ${message.from}: ${message.body}`);
+            console.log(`📨 ${message.from}: ${message.body}`);
             
             // Ignore messages from self
             if (message.isFromMe) return;

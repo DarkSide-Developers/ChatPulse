@@ -35,43 +35,25 @@ class Logger {
         const loggerConfig = {
             name: this.name,
             level: this.options.level,
-            timestamp: pino.stdTimeFunctions.isoTime,
-            formatters: {
-                level: (label) => {
-                    return { level: label.toUpperCase() };
-                }
-            },
-            // Disable file descriptors to prevent issues
-            base: {
-                pid: process.pid
-            }
+            timestamp: false,
+            base: null
         };
 
-        // Setup file transport if enabled
-        if (this.options.logToFile) {
-            // Disable file transport to prevent worker thread issues
-            // Use console logging instead
-            this.options.logToFile = false;
-        } else {
-            // Pretty print for development
-            if (process.env.NODE_ENV !== 'production') {
-                try {
-                    // Only use pino-pretty if it's available
-                    const pinoPretty = require.resolve('pino-pretty');
-                    if (pinoPretty) {
-                        loggerConfig.transport = {
-                            target: 'pino-pretty',
-                            options: {
-                                colorize: true,
-                                translateTime: 'SYS:standard',
-                                ignore: 'pid,hostname'
-                            }
-                        };
+        // Simple console output for better readability
+        if (process.env.NODE_ENV !== 'production') {
+            try {
+                loggerConfig.transport = {
+                    target: 'pino-pretty',
+                    options: {
+                        colorize: true,
+                        translateTime: false,
+                        ignore: 'pid,hostname,time',
+                        messageFormat: '{msg}',
+                        hideObject: true
                     }
-                } catch (error) {
-                    // pino-pretty not available, use default console output
-                    // No transport needed for basic console output
-                }
+                };
+            } catch (error) {
+                // Fallback to simple console output
             }
         }
 

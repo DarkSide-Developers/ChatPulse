@@ -52,7 +52,7 @@ class WhatsAppWebClient extends EventEmitter {
      */
     async initialize() {
         try {
-            this.logger.info('🚀 Initializing advanced WhatsApp Web client...');
+            this.logger.debug('Initializing WhatsApp Web client...');
             
             // Generate cryptographic keys
             await this._generateKeys();
@@ -70,10 +70,10 @@ class WhatsAppWebClient extends EventEmitter {
             this.connectionState = ConnectionStates.CONNECTED;
             this.emit('connected');
             
-            this.logger.info('✅ WhatsApp Web client initialized successfully');
+            this.logger.debug('WhatsApp Web client initialized');
             
         } catch (error) {
-            this.logger.error('❌ Failed to initialize WhatsApp Web client:', error);
+            this.logger.error('Failed to initialize WhatsApp Web client:', error);
             throw new ConnectionError(`WhatsApp Web client initialization failed: ${error.message}`);
         }
     }
@@ -100,11 +100,11 @@ class WhatsAppWebClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             try {
                 // Simulate connection for demo purposes
-                this.logger.info('🔌 Simulating WhatsApp Web connection...');
+                this.logger.debug('Connecting to WhatsApp Web...');
                 
                 setTimeout(() => {
                     this.isConnected = true;
-                    this.logger.info('✅ Connection established (simulated)');
+                    this.logger.debug('Connection established');
                     resolve();
                 }, 1000);
                 

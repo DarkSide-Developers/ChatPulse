@@ -6,42 +6,39 @@
 const { ChatPulse } = require('chatpulse');
 
 async function pairingExample() {
-    console.log('🚀 Starting ChatPulse Pairing Example...\n');
+    console.log('🚀 ChatPulse Pairing Example\n');
     
     // Create ChatPulse client with pairing strategy
     const client = new ChatPulse({
         sessionName: 'pairing-session',
         authStrategy: 'pairing',
-        logLevel: 'info',
+        logLevel: 'warn',  // Reduce log noise
         autoReconnect: true
     });
     
     // Event: When client is ready
     client.on('ready', () => {
         console.log('✅ ChatPulse is ready with pairing authentication!');
-        console.log('📱 You can now send messages to test the bot');
+        console.log('📱 Send messages to test the bot\n');
     });
     
     // Event: When pairing code is generated
     client.on('pairing_code', (pairingInfo) => {
-        console.log('📞 Pairing code generated!');
-        console.log(`🔑 Code: ${pairingInfo.pairingCode}`);
-        console.log(`📱 Phone: +${pairingInfo.phoneNumber}`);
-        console.log('⏰ Code expires in 5 minutes');
+        // The pairing handler already displays the code nicely
     });
     
     // Event: When authenticated
     client.on('authenticated', (authData) => {
-        console.log('🔐 Authentication successful!');
+        console.log('🔐 Pairing authentication successful!');
         if (authData.phoneNumber) {
-            console.log(`📱 Authenticated with: +${authData.phoneNumber}`);
+            console.log(`📱 Phone: +${authData.phoneNumber}\n`);
         }
     });
     
     // Event: Handle incoming messages
     client.on('message', async (message) => {
         try {
-            console.log(`📨 Message from ${message.from}: ${message.body}`);
+            console.log(`📨 ${message.from}: ${message.body}`);
             
             // Ignore messages from self
             if (message.isFromMe) return;
