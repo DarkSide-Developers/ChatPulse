@@ -7,13 +7,6 @@
  */
 
 const ChatPulse = require('./core/ChatPulse');
-const { MessageHandler } = require('./handlers/MessageHandler');
-const { MediaHandler } = require('./handlers/MediaHandler');
-const { QRHandler } = require('./handlers/QRHandler');
-const { SessionManager } = require('./managers/SessionManager');
-const { WhatsAppWebClient } = require('./core/WhatsAppWebClient');
-const { Logger } = require('./utils/Logger');
-const { InputValidator } = require('./validators/InputValidator');
 const { 
     ChatPulseError,
     ConnectionError,
@@ -28,17 +21,9 @@ const {
     ConnectionStates,
     EventTypes
 } = require('./types');
-const { DefaultConfig } = require('./config/DefaultConfig');
 
 module.exports = {
     ChatPulse,
-    MessageHandler,
-    MediaHandler,
-    QRHandler,
-    SessionManager,
-    WhatsAppWebClient,
-    Logger,
-    InputValidator,
     ChatPulseError,
     ConnectionError,
     AuthenticationError,
@@ -48,11 +33,8 @@ module.exports = {
     ChatTypes,
     AuthStrategies,
     ConnectionStates,
-    EventTypes,
-    DefaultConfig
+    EventTypes
 };
 
-if (require.main === module) {
-    console.log('🚀 ChatPulse v2.0.0 - Advanced WhatsApp Web API');
-    console.log('📖 Usage: const { ChatPulse } = require("chatpulse");');
-}
+// Default export for easier importing
+module.exports.default = ChatPulse;

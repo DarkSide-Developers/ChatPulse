@@ -15,7 +15,6 @@ const DefaultConfig = {
     // Authentication configuration
     authStrategy: AuthStrategies.QR,
     authTimeout: 120000,
-    pairingNumber: null,
     
     // Connection configuration
     autoReconnect: true,
@@ -23,9 +22,8 @@ const DefaultConfig = {
     reconnectInterval: 5000,
     connectionTimeout: 30000,
     
-    // Rate limiting
-    rateLimitPerMinute: 60,
-    rateLimitPerHour: 1000,
+    // Logging
+    logLevel: 'info',
     
     // QR code options
     qrCodeOptions: {
@@ -33,15 +31,7 @@ const DefaultConfig = {
         save: true,
         format: 'png',
         size: 'medium'
-    },
-    
-    // Logging
-    logLevel: 'info',
-    
-    // Features
-    enablePresenceUpdates: true,
-    enableReadReceipts: true,
-    enableTypingIndicator: true
+    }
 };
 
 module.exports = { DefaultConfig };

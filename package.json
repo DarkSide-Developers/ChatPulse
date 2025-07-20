@@ -1,13 +1,15 @@
 {
   "name": "chatpulse",
   "version": "2.0.0",
-  "description": "ChatPulse - Advanced WhatsApp Web API Library",
+  "description": "Advanced WhatsApp Web API Library - Simple, powerful, and reliable WhatsApp automation",
   "main": "src/index.js",
+  "types": "types/index.d.ts",
   "scripts": {
-    "start": "node src/index.js",
-    "basic": "node examples/basic-example.js",
-    "advanced": "node examples/advanced-example.js",
-    "test": "node examples/test-connection.js",
+    "start": "node examples/basic.js",
+    "example:basic": "node examples/basic.js",
+    "example:advanced": "node examples/advanced.js",
+    "example:bot": "node examples/bot.js",
+    "test": "node examples/test.js",
     "lint": "eslint src/ examples/ --ext .js",
     "lint:fix": "eslint src/ examples/ --ext .js --fix"
   },
@@ -19,13 +21,18 @@
     "messaging",
     "automation",
     "qr-code",
-    "pairing-code"
+    "chatbot",
+    "nodejs"
   ],
   "author": "DarkWinzo <isurulakshan9998@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/DarkSide-Developers/ChatPulse.git"
+  },
+  "homepage": "https://github.com/DarkSide-Developers/ChatPulse#readme",
+  "bugs": {
+    "url": "https://github.com/DarkSide-Developers/ChatPulse/issues"
   },
   "dependencies": {
     "ws": "^8.14.2",
@@ -38,10 +45,15 @@
     "mime-types": "^2.1.35"
   },
   "devDependencies": {
-    "eslint": "^8.55.0",
-    "pino-pretty": "^10.2.3"
+    "eslint": "^8.55.0"
   },
   "engines": {
     "node": ">=16.0.0"
-  }
+  },
+  "files": [
+    "src/",
+    "types/",
+    "README.md",
+    "LICENSE"
+  ]
 }

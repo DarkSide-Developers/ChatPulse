@@ -4,17 +4,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](https://nodejs.org/)
 
-**ChatPulse** is a powerful, lightweight WhatsApp Web API library built for Node.js. It provides advanced authentication methods, real-time messaging, and professional-grade features for building WhatsApp bots and automation tools.
+**ChatPulse** is a powerful, lightweight WhatsApp Web API library for Node.js. Build WhatsApp bots and automation tools with ease using our simple yet powerful API.
 
 ## 🚀 Features
 
-- **Multiple Authentication Methods**: QR Code, Phone Number, Email, Pairing Code
-- **Real-time Messaging**: Send/receive text, media, buttons, lists, polls
-- **Advanced Connection**: WebSocket-based, no browser automation
-- **Session Management**: Persistent sessions with automatic restoration
-- **Rate Limiting**: Built-in protection against spam
-- **Error Recovery**: Automatic reconnection and error handling
+- **Easy Setup**: Get started in minutes with simple API
+- **QR Code Authentication**: Secure WhatsApp Web connection
+- **Rich Messages**: Text, buttons, lists, media, polls, contacts, locations
+- **Auto Reconnection**: Reliable connection with automatic recovery
+- **Session Management**: Persistent sessions across restarts
 - **TypeScript Support**: Full type definitions included
+- **Event-Driven**: React to messages, button clicks, and more
 
 ## 📦 Installation
 
@@ -22,27 +22,29 @@
 npm install chatpulse
 ```
 
-## 🔧 Quick Start
+## 🚀 Quick Start
 
-### Basic Usage
+### Basic Bot Example
 
 ```javascript
 const { ChatPulse } = require('chatpulse');
 
 const client = new ChatPulse({
-    sessionName: 'my-bot',
-    authStrategy: 'qr'
+    sessionName: 'my-bot'
 });
 
 client.on('ready', () => {
     console.log('✅ ChatPulse is ready!');
 });
 
-client.on('qr_generated', () => {
+client.on('qr_generated', (qrInfo) => {
     console.log('📱 Scan QR code with WhatsApp');
 });
 
 client.on('message', async (message) => {
+    // Ignore own messages
+    if (message.isFromMe) return;
+    
     if (message.body === '!ping') {
         await client.sendMessage(message.from, 'Pong! 🏓');
     }
@@ -51,52 +53,68 @@ client.on('message', async (message) => {
 await client.initialize();
 ```
 
-### Advanced Authentication
+### Button Messages
 
 ```javascript
-// Phone Number Authentication
-const client = new ChatPulse({
-    sessionName: 'phone-bot',
-    authStrategy: 'phone_number'
+const buttons = [
+    { id: 'btn1', text: 'Option 1' },
+    { id: 'btn2', text: 'Option 2' },
+    { id: 'btn3', text: 'Option 3' }
+];
+
+await client.sendButtonMessage(
+    chatId, 
+    'Choose an option:', 
+    buttons
+);
+
+// Handle button responses
+client.on('button_response', async (response) => {
+    console.log('Button pressed:', response.selectedButtonId);
+    await client.sendMessage(response.from, `You selected: ${response.selectedButtonId}`);
 });
+```
 
-const result = await client.authenticateWithPhoneNumber('+1234567890');
-console.log('Verification sent:', result);
+### List Messages
 
-// Email Authentication
-const emailClient = new ChatPulse({
-    sessionName: 'email-bot',
-    authStrategy: 'email'
-});
+```javascript
+const sections = [
+    {
+        title: 'Main Menu',
+        rows: [
+            { id: 'help', title: 'Help', description: 'Get help' },
+            { id: 'about', title: 'About', description: 'About us' }
+        ]
+    }
+];
 
-const emailResult = await emailClient.authenticateWithEmail('user@example.com');
-console.log('Magic link sent:', emailResult);
+await client.sendListMessage(
+    chatId,
+    'Select an option:',
+    'Menu',
+    sections
+);
 ```
 
 ## 📚 API Reference
 
-### ChatPulse Class
-
-#### Constructor Options
-
+### Constructor Options
 ```javascript
 const client = new ChatPulse({
-    sessionName: 'default',        // Session identifier
-    authStrategy: 'qr',           // 'qr', 'pairing', 'phone_number', 'email'
-    autoReconnect: true,          // Auto-reconnect on disconnect
-    maxReconnectAttempts: 10,     // Max reconnection attempts
-    logLevel: 'info',             // 'debug', 'info', 'warn', 'error'
-    rateLimitPerMinute: 60,       // Rate limit per minute
+    sessionName: 'my-session',     // Session name for persistence
+    logLevel: 'info',              // 'debug', 'info', 'warn', 'error'
+    autoReconnect: true,           // Auto-reconnect on disconnect
+    maxReconnectAttempts: 10,      // Max reconnection attempts
     qrCodeOptions: {
-        terminal: true,           // Display QR in terminal
-        save: true,              // Save QR as image
-        format: 'png',           // QR image format
-        size: 'medium'           // QR size: 'small', 'medium', 'large'
+        terminal: true,            // Display QR in terminal
+        save: true,                // Save QR as image
+        format: 'png',             // QR image format
+        size: 'medium'             // QR size
     }
 });
 ```
 
-#### Methods
+### Core Methods
 
 ```javascript
 // Initialize client
@@ -106,33 +124,19 @@ await client.initialize();
 await client.sendMessage(chatId, 'Hello World!');
 
 // Send button message
-await client.sendButtonMessage(chatId, 'Choose option:', [
-    { id: 'btn1', text: 'Option 1' },
-    { id: 'btn2', text: 'Option 2' }
-]);
+await client.sendButtonMessage(chatId, 'Choose:', buttons);
 
 // Send list message
-await client.sendListMessage(chatId, 'Select item:', 'Menu', [
-    {
-        title: 'Section 1',
-        rows: [
-            { id: 'item1', title: 'Item 1', description: 'Description 1' }
-        ]
-    }
-]);
+await client.sendListMessage(chatId, 'Select:', 'Menu', sections);
 
-// Authentication methods
-await client.authenticateWithPhoneNumber('+1234567890');
-await client.authenticateWithEmail('user@example.com');
+// Send contact
+await client.sendContact(chatId, { name: 'John', number: '+1234567890' });
 
-// Get QR code
-const qrCode = await client.getQRCode('terminal');
+// Send location
+await client.sendLocation(chatId, latitude, longitude, 'My Location');
 
-// Connection status
-const status = client.getConnectionStatus();
-
-// Disconnect
-await client.disconnect();
+// Send poll
+await client.sendPoll(chatId, 'Favorite color?', ['Red', 'Blue', 'Green']);
 ```
 
 ### Events
@@ -143,10 +147,9 @@ client.on('connected', () => console.log('Connected'));
 client.on('disconnected', () => console.log('Disconnected'));
 client.on('ready', () => console.log('Ready to use'));
 
-// Authentication events
-client.on('qr_generated', (qrInfo) => console.log('QR generated'));
+// Authentication events  
+client.on('qr_generated', (qrInfo) => console.log('Scan QR code'));
 client.on('authenticated', () => console.log('Authenticated'));
-client.on('pairing_code', (code) => console.log('Pairing code:', code));
 
 // Message events
 client.on('message', (message) => console.log('New message:', message));
@@ -157,119 +160,62 @@ client.on('list_response', (response) => console.log('List item selected:', resp
 client.on('error', (error) => console.error('Error:', error));
 ```
 
-## 🔐 Authentication Methods
-
-### 1. QR Code Authentication (Default)
-```javascript
-const client = new ChatPulse({ authStrategy: 'qr' });
-await client.initialize();
-// Scan QR code with WhatsApp mobile app
-```
-
-### 2. Phone Number Authentication
-```javascript
-const client = new ChatPulse({ authStrategy: 'phone_number' });
-const result = await client.authenticateWithPhoneNumber('+1234567890');
-// Enter verification code received via SMS
-```
-
-### 3. Email Authentication
-```javascript
-const client = new ChatPulse({ authStrategy: 'email' });
-const result = await client.authenticateWithEmail('user@example.com');
-// Click magic link sent to email
-```
-
-### 4. Pairing Code Authentication
-```javascript
-const client = new ChatPulse({ 
-    authStrategy: 'pairing',
-    pairingNumber: '+1234567890'
-});
-await client.initialize();
-// Enter pairing code in WhatsApp mobile app
-```
-
-## 📱 Message Types
-
-### Text Messages
-```javascript
-await client.sendMessage(chatId, 'Hello World!');
-```
-
-### Button Messages
-```javascript
-await client.sendButtonMessage(chatId, 'Choose an option:', [
-    { id: 'yes', text: 'Yes' },
-    { id: 'no', text: 'No' }
-]);
-```
-
-### List Messages
-```javascript
-await client.sendListMessage(chatId, 'Select item:', 'Menu', [
-    {
-        title: 'Food',
-        rows: [
-            { id: 'pizza', title: 'Pizza', description: 'Delicious pizza' },
-            { id: 'burger', title: 'Burger', description: 'Tasty burger' }
-        ]
-    }
-]);
-```
-
-## 🛠️ Configuration
-
-### Environment Variables
-```bash
-CHATPULSE_LOG_LEVEL=debug
-CHATPULSE_SESSION_DIR=./sessions
-CHATPULSE_RATE_LIMIT=100
-```
-
-### Advanced Configuration
-```javascript
-const client = new ChatPulse({
-    sessionName: 'production-bot',
-    authStrategy: 'qr',
-    autoReconnect: true,
-    maxReconnectAttempts: 20,
-    reconnectInterval: 5000,
-    connectionTimeout: 30000,
-    rateLimitPerMinute: 100,
-    rateLimitPerHour: 2000,
-    enablePresenceUpdates: true,
-    enableReadReceipts: true,
-    enableTypingIndicator: true,
-    qrCodeOptions: {
-        terminal: true,
-        save: true,
-        format: 'png',
-        size: 'large'
-    }
-});
-```
-
 ## 🔧 Examples
 
-Run the included examples:
+### Run Examples
 
 ```bash
-# Basic example
-npm run basic
+# Basic bot example
+npm run example:basic
 
-# Advanced example with all features
-npm run advanced
+# Advanced bot with buttons/lists
+npm run example:advanced
 
-# Test connection
-npm run test
+# Smart bot with multiple features
+npm run example:bot
+
+# Test functionality
+npm test
 ```
+
+### Example Files
+
+- `examples/basic.js` - Simple bot with basic commands
+- `examples/advanced.js` - Advanced bot with buttons and lists  
+- `examples/bot.js` - Smart bot with multiple features
+- `examples/test.js` - Test ChatPulse functionality
 
 ## 📋 Requirements
 
 - Node.js 16.0.0 or higher
 - WhatsApp account
 - Internet connection
+
+## 🔧 Common Use Cases
+
+- **Customer Support Bots**: Automated customer service
+- **Notification Systems**: Send alerts and updates
+- **Interactive Menus**: Button and list-based interfaces
+- **Content Distribution**: Share media and documents
+- **Polling Systems**: Create interactive polls
+- **Reminder Services**: Time-based notifications
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **QR Code not appearing**: Check terminal supports images or check saved QR file
+2. **Connection issues**: Ensure stable internet and try restarting
+3. **Session problems**: Delete session folder and re-authenticate
+4. **Message not sending**: Check if client is ready with `client.isReady`
+
+### Debug Mode
+
+```javascript
+const client = new ChatPulse({
+    logLevel: 'debug'  // Enable detailed logging
+});
+```
 
 ## 🤝 Contributing
 
@@ -278,6 +224,15 @@ npm run test
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## 📝 Changelog
+
+### v2.0.0
+- Complete rewrite with improved stability
+- Simplified API for easier usage
+- Better error handling and recovery
+- Enhanced TypeScript support
+- New examples and documentation
 
 ## 📄 License
 

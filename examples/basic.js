@@ -1,68 +1,95 @@
 /**
  * ChatPulse - Basic Example
- * Developer: DarkWinzo (https://github.com/DarkWinzo)
- * © 2025 DarkSide Developer Team. All rights reserved.
+ * Simple WhatsApp bot that responds to messages
  */
 
-const { ChatPulse } = require('../src/index');
+const { ChatPulse } = require('chatpulse');
 
 async function basicExample() {
     console.log('🚀 Starting ChatPulse Basic Example...\n');
     
+    // Create ChatPulse client
     const client = new ChatPulse({
-        sessionName: 'basic-bot',
-        authStrategy: 'qr',
-        autoReconnect: true,
+        sessionName: 'basic-session',
         logLevel: 'info'
     });
     
+    // Event: When client is ready
     client.on('ready', () => {
         console.log('✅ ChatPulse is ready!');
+        console.log('📱 You can now send messages to test the bot');
     });
     
-    client.on('qr_generated', (qrInfo) => {
+    // Event: When QR code is generated
+    client.on('qr_generated', () => {
         console.log('📱 QR Code generated! Scan with WhatsApp mobile app.');
     });
     
+    // Event: When authenticated
     client.on('authenticated', () => {
         console.log('🔐 Authentication successful!');
     });
     
+    // Event: Handle incoming messages
     client.on('message', async (message) => {
         try {
             console.log(`📨 Message from ${message.from}: ${message.body}`);
             
+            // Ignore messages from self
+            if (message.isFromMe) return;
+            
+            // Simple command responses
             if (message.body === '!ping') {
                 await client.sendMessage(message.from, 'Pong! 🏓');
             }
             
-            if (message.body === '!help') {
+            else if (message.body === '!hello') {
+                await client.sendMessage(message.from, 'Hello! 👋 I am ChatPulse bot.');
+            }
+            
+            else if (message.body === '!help') {
                 const helpText = `
 🤖 *ChatPulse Bot Commands*
 
 • !ping - Test bot response
+• !hello - Get greeting
 • !help - Show this help
+• !time - Get current time
 • !status - Show bot status
 
 Powered by ChatPulse 2.0 🚀`;
                 await client.sendMessage(message.from, helpText);
             }
             
-            if (message.body === '!status') {
+            else if (message.body === '!time') {
+                const currentTime = new Date().toLocaleString();
+                await client.sendMessage(message.from, `🕐 Current time: ${currentTime}`);
+            }
+            
+            else if (message.body === '!status') {
                 const status = client.getConnectionStatus();
                 const statusText = `
 📊 *Bot Status*
 
 🔌 Connected: ${status.connected ? '✅' : '❌'}
 🔐 Authenticated: ${status.authenticated ? '✅' : '❌'}
-🚀 Ready: ${status.ready ? '✅' : '❌'}`;
+🚀 Ready: ${status.ready ? '✅' : '❌'}
+
+Bot is working perfectly! 🎉`;
                 await client.sendMessage(message.from, statusText);
             }
+            
         } catch (error) {
             console.error('❌ Error handling message:', error.message);
         }
     });
     
+    // Event: Handle errors
+    client.on('error', (error) => {
+        console.error('❌ ChatPulse Error:', error.message);
+    });
+    
+    // Initialize the client
     try {
         await client.initialize();
     } catch (error) {
@@ -70,6 +97,7 @@ Powered by ChatPulse 2.0 🚀`;
         process.exit(1);
     }
     
+    // Graceful shutdown
     process.on('SIGINT', async () => {
         console.log('\n🛑 Shutting down...');
         try {
@@ -81,6 +109,7 @@ Powered by ChatPulse 2.0 🚀`;
     });
 }
 
+// Run the example
 if (require.main === module) {
     basicExample().catch(console.error);
 }
