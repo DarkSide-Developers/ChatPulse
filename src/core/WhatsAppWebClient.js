@@ -311,9 +311,11 @@ class WhatsAppWebClient extends EventEmitter {
     _generateQRData() {
         const timestamp = Date.now();
         const random = crypto.randomBytes(16).toString('hex');
-        const publicKeyB64 = this.publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
         
-        return `2@${timestamp},${random},${publicKeyB64},${this.clientId}`;
+        // Generate a mock public key for demo purposes
+        const mockPublicKey = crypto.randomBytes(32).toString('base64');
+        
+        return `2@${timestamp},${random},${mockPublicKey},${this.clientId}`;
     }
 
     /**

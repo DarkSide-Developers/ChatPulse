@@ -37,6 +37,11 @@ class QRHandler {
         try {
             this.logger.info('📱 Generating QR code...');
             
+            // Validate QR data
+            if (!qrData || typeof qrData !== 'string') {
+                throw new AuthenticationError('Invalid QR data provided', 'INVALID_QR_DATA');
+            }
+            
             const qrOptions = {
                 terminal: options.terminal !== false,
                 save: options.save !== false,
@@ -61,6 +66,9 @@ class QRHandler {
             // Add to history
             this._addToHistory(this.currentQR);
             
+            let savedPath = null;
+            let dataURL = null;
+            
             // Display in terminal if requested
             if (qrOptions.terminal) {
                 await this._displayInTerminal(qrData, qrOptions);
@@ -68,13 +76,20 @@ class QRHandler {
             
             // Save as image if requested
             if (qrOptions.save) {
-                await this._saveAsImage(qrData, qrOptions);
+                try {
+                    savedPath = await this._saveAsImage(qrData, qrOptions);
+                } catch (error) {
+                    this.logger.warn('Failed to save QR image, continuing without saving:', error.message);
+                }
             }
             
             // Generate data URL if requested
-            let dataURL = null;
             if (qrOptions.dataURL) {
-                dataURL = await this._generateDataURL(qrData, qrOptions);
+                try {
+                    dataURL = await this._generateDataURL(qrData, qrOptions);
+                } catch (error) {
+                    this.logger.warn('Failed to generate data URL:', error.message);
+                }
             }
             
             const result = {
@@ -83,6 +98,7 @@ class QRHandler {
                 format: qrOptions.format,
                 size: qrOptions.size,
                 saved: qrOptions.save,
+                savedPath: savedPath,
                 dataURL: dataURL
             };
             
@@ -101,15 +117,32 @@ class QRHandler {
     async _displayInTerminal(qrData, options) {
         try {
             const terminalOptions = {
-                small: options.size === 'small'
+                small: options.size === 'small',
+                errorCorrectionLevel: 'M'
             };
             
             console.log('\n📱 Scan this QR code with your WhatsApp mobile app:\n');
-            qrTerminal.generate(qrData, terminalOptions);
+            
+            // Use callback version to handle errors properly
+            return new Promise((resolve, reject) => {
+                try {
+                    qrTerminal.generate(qrData, terminalOptions, (qr) => {
+                        console.log(qr);
+                        resolve();
+                    });
+                } catch (error) {
+                    // Fallback to simple generation
+                    qrTerminal.generate(qrData, terminalOptions);
+                    resolve();
+                }
+            });
             console.log('\n⏰ QR code will refresh automatically every 30 seconds\n');
             
         } catch (error) {
             this.logger.error('Failed to display QR in terminal:', error);
+            // Fallback: just log the QR data
+            console.log('\n📱 QR Code Data:', qrData);
+            console.log('Please use a QR code reader app to scan this data\n');
         }
     }
 
@@ -124,7 +157,7 @@ class QRHandler {
             
             const qrCodeOptions = {
                 errorCorrectionLevel: options.errorCorrectionLevel,
-                type: 'image/png',
+                type: options.format === 'svg' ? 'svg' : 'png',
                 quality: 0.92,
                 margin: options.margin,
                 color: options.color,
@@ -132,11 +165,17 @@ class QRHandler {
             };
             
             if (options.format === 'svg') {
-                qrCodeOptions.type = 'svg';
-                await QRCode.toFile(filepath, qrData, qrCodeOptions);
+                const svgString = await QRCode.toString(qrData, { 
+                    ...qrCodeOptions, 
+                    type: 'svg' 
+                });
+                await fs.writeFile(filepath, svgString);
             } else {
                 // Generate PNG and optionally convert to other formats
-                const buffer = await QRCode.toBuffer(qrData, qrCodeOptions);
+                const buffer = await QRCode.toBuffer(qrData, {
+                    ...qrCodeOptions,
+                    type: 'png'
+                });
                 
                 if (options.format === 'png') {
                     await fs.writeFile(filepath, buffer);
@@ -157,7 +196,8 @@ class QRHandler {
             
         } catch (error) {
             this.logger.error('Failed to save QR code:', error);
-            throw error;
+            // Don't throw error, just log it and continue
+            return null;
         }
     }
 

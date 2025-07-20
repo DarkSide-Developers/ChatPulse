@@ -44,7 +44,9 @@
     "mime-types": "^2.1.35"
   },
   "devDependencies": {
-    "eslint": "^8.55.0"
+    "eslint": "^8.55.0",
+    "eslint-plugin-security": "^1.7.1",
+    "prettier": "^3.1.0"
   },
   "engines": {
     "node": ">=16.0.0"
@@ -52,6 +54,7 @@
   "files": [
     "src/",
     "types/",
+    "examples/",
     "README.md",
     "LICENSE"
   ]

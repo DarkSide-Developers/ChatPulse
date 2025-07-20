@@ -32,6 +32,12 @@ async function advancedExample() {
     client.on('qr_generated', (qrInfo) => {
         console.log('📱 QR Code generated!');
         console.log('📱 Scan with WhatsApp mobile app\n');
+        if (qrInfo.savedPath) {
+            console.log(`📁 QR Code saved to: ${qrInfo.savedPath}`);
+        }
+        if (qrInfo.fallback) {
+            console.log('⚠️  Using fallback QR for demo purposes');
+        }
     });
     
     // Event: Authentication successful
