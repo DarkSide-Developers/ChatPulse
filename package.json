@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "types": "types/index.d.ts",
   "scripts": {
-    "start": "node examples/basic.js",
+    "start": "node src/index.js",
     "example:basic": "node examples/basic.js",
     "example:advanced": "node examples/advanced.js",
     "example:bot": "node examples/bot.js",
