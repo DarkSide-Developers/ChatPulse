@@ -35,38 +35,25 @@ class Logger {
         const loggerConfig = {
             name: this.name,
             level: this.options.level,
-            timestamp: pino.stdTimeFunctions.isoTime,
-            formatters: {
-                level: (label) => {
-                    return { level: label.toUpperCase() };
-                }
-            }
+            timestamp: false,
+            base: null
         };
 
-        // Setup file transport if enabled
-        if (this.options.logToFile) {
-            this._ensureLogDir();
-            
-            const logFile = path.join(this.options.logDir, `${this.name.toLowerCase()}.log`);
-            
-            loggerConfig.transport = {
-                target: 'pino/file',
-                options: {
-                    destination: logFile,
-                    mkdir: true
-                }
-            };
-        } else {
-            // Pretty print for development
-            if (process.env.NODE_ENV !== 'production') {
+        // Simple console output for better readability
+        if (process.env.NODE_ENV !== 'production') {
+            try {
                 loggerConfig.transport = {
                     target: 'pino-pretty',
                     options: {
                         colorize: true,
-                        translateTime: 'SYS:standard',
-                        ignore: 'pid,hostname'
+                        translateTime: false,
+                        ignore: 'pid,hostname,time',
+                        messageFormat: '{msg}',
+                        hideObject: true
                     }
                 };
+            } catch (error) {
+                // Fallback to simple console output
             }
         }
 

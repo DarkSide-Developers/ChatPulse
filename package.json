@@ -1,53 +1,63 @@
 {
   "name": "chatpulse",
-  "version": "1.0.0",
-  "description": "Advanced WhatsApp Web API Library - A powerful, modular, and production-ready WhatsApp automation library",
+  "version": "2.0.0",
+  "description": "Advanced WhatsApp Web API Library - Simple, powerful, and reliable WhatsApp automation",
   "main": "src/index.js",
+  "types": "types/index.d.ts",
   "scripts": {
-    "dev": "node examples/advanced-bot.js",
-    "start": "node examples/advanced-bot.js",
-    "basic": "node examples/basic-bot.js",
-    "test": "echo 'Tests not implemented yet'",
-    "lint": "echo 'Linting not implemented yet'"
+    "start": "node src/index.js",
+    "example:basic": "node examples/basic.js",
+    "example:advanced": "node examples/advanced.js",
+    "example:bot": "node examples/bot.js",
+    "example:pairing": "node examples/pairing.js",
+    "test": "node examples/test.js",
+    "lint": "eslint src/ examples/ --ext .js",
+    "lint:fix": "eslint src/ examples/ --ext .js --fix"
   },
   "keywords": [
     "whatsapp",
     "whatsapp-web",
     "whatsapp-api",
     "whatsapp-bot",
-    "automation",
     "messaging",
-    "chatbot"
+    "automation",
+    "qr-code",
+    "chatbot",
+    "nodejs"
   ],
-  "author": {
-    "name": "DarkWinzo",
-    "email": "isurulakshan9998@gmail.com",
-    "url": "https://github.com/DarkWinzo"
-  },
-  "organization": {
-    "name": "DarkSide Developer Team",
-    "url": "https://github.com/DarkSide-Developers"
-  },
+  "author": "DarkWinzo <isurulakshan9998@gmail.com>",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/DarkSide-Developers/ChatPulse.git"
   },
-  "license": "MIT",
+  "homepage": "https://github.com/DarkSide-Developers/ChatPulse#readme",
+  "bugs": {
+    "url": "https://github.com/DarkSide-Developers/ChatPulse/issues"
+  },
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "fs-extra": "^11.1.1",
+    "libphonenumber-js": "^1.10.51",
+    "mime-types": "^2.1.35",
+    "pino": "^8.16.1",
+    "pino-pretty": "^13.0.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.55.0",
+    "eslint-plugin-security": "^1.7.1",
+    "prettier": "^3.1.0"
+  },
   "engines": {
     "node": ">=16.0.0"
   },
-  "dependencies": {
-    "qrcode-terminal": "^0.12.0",
-    "qrcode": "^1.5.3",
-    "ws": "^8.14.2",
-    "protobufjs": "^7.2.5",
-    "pino": "^8.17.2",
-    "fs-extra": "^11.2.0",
-    "crypto-js": "^4.2.0",
-    "mime-types": "^2.1.35",
-    "dotenv": "^16.3.1"
-  },
-  "devDependencies": {
-    "pino-pretty": "^10.3.1"
-  }
+  "files": [
+    "src/",
+    "types/",
+    "examples/",
+    "README.md",
+    "LICENSE"
+  ]
 }

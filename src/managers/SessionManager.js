@@ -10,7 +10,7 @@
 
 const fs = require('fs-extra');
 const path = require('path');
-const crypto = require('crypto-js');
+const CryptoJS = require('crypto-js');
 const { Logger } = require('../utils/Logger');
 const { SessionError } = require('../errors/ChatPulseError');
 
@@ -304,7 +304,7 @@ class SessionManager {
      */
     _encrypt(data) {
         try {
-            return crypto.AES.encrypt(data, this.encryptionKey).toString();
+            return CryptoJS.AES.encrypt(data, this.encryptionKey).toString();
         } catch (error) {
             this.logger.error('Encryption failed:', error);
             return data;
@@ -316,8 +316,8 @@ class SessionManager {
      */
     _decrypt(encryptedData) {
         try {
-            const bytes = crypto.AES.decrypt(encryptedData, this.encryptionKey);
-            return bytes.toString(crypto.enc.Utf8);
+            const bytes = CryptoJS.AES.decrypt(encryptedData, this.encryptionKey);
+            return bytes.toString(CryptoJS.enc.Utf8);
         } catch (error) {
             this.logger.error('Decryption failed:', error);
             return encryptedData;
@@ -328,7 +328,7 @@ class SessionManager {
      * Generate encryption key
      */
     _generateEncryptionKey() {
-        return crypto.lib.WordArray.random(256/8).toString();
+        return CryptoJS.lib.WordArray.random(256/8).toString();
     }
 
     /**

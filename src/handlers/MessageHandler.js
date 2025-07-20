@@ -28,28 +28,61 @@ class MessageHandler {
      */
     async sendMessage(chatId, message, options = {}) {
         try {
+            // Validate inputs
+            this._validateChatId(chatId);
+            this._validateMessage(message);
+            
             if (!this.client.isReady) {
                 throw new MessageError('ChatPulse is not ready', 'NOT_READY');
             }
 
             const messageId = this._generateMessageId();
-            this.pendingMessages.set(messageId, { chatId, message, options, timestamp: Date.now() });
+            
+            const pendingMessage = { 
+                chatId, 
+                message, 
+                options, 
+                timestamp: Date.now(),
+                attempts: 0,
+                maxAttempts: 3
+            };
+            
+            this.pendingMessages.set(messageId, pendingMessage);
 
-            const result = await this.client.webClient.sendMessage(
-                this._formatChatId(chatId),
-                message,
-                { ...options, messageId }
-            );
+            let result;
+            try {
+                result = await this.client.webClient.sendMessage(
+                    this._formatChatId(chatId),
+                    message,
+                    { ...options, messageId }
+                );
+            } catch (sendError) {
+                this.pendingMessages.delete(messageId);
+                throw new MessageError(`Failed to send message: ${sendError.message}`, 'SEND_FAILED', { 
+                    chatId, 
+                    messageId,
+                    originalError: sendError 
+                });
+            }
 
             this.pendingMessages.delete(messageId);
-            this.messageCache.set(result.id, result);
+            
+            if (result && result.id) {
+                this.messageCache.set(result.id, result);
+            }
 
             this.logger.info(`Message sent to ${chatId}: ${messageId}`);
-            this.client.emit(EventTypes.MESSAGE_SENT, result);
+            
+            try {
+                this.client.emit(EventTypes.MESSAGE_SENT, result);
+            } catch (emitError) {
+                this.logger.error('Error emitting message sent event:', emitError);
+            }
             
             return result;
 
         } catch (error) {
+            this.logger.error('Error in sendMessage:', error);
             throw new MessageError(`Failed to send message: ${error.message}`, 'SEND_FAILED', { chatId, error });
         }
     }
@@ -348,35 +381,165 @@ class MessageHandler {
      */
     handleIncomingMessage(message) {
         try {
+            // Validate message
+            if (!message) {
+                this.logger.warn('Received null or undefined message');
+                return;
+            }
+            
+            // Deep clone message to avoid mutation issues
+            let processedMessage;
+            try {
+                processedMessage = JSON.parse(JSON.stringify(message));
+            } catch (cloneError) {
+                this.logger.warn('Failed to clone message, using original:', cloneError);
+                processedMessage = message;
+            }
+            
+            // Ensure required properties exist
+            if (!processedMessage.id) {
+                processedMessage.id = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            }
+            
+            if (!processedMessage.timestamp) {
+                processedMessage.timestamp = Date.now();
+            }
+            
+            if (!processedMessage.from) {
+                this.logger.warn('Message missing from field:', processedMessage);
+                processedMessage.from = 'unknown@c.us';
+            }
+            
+            if (typeof processedMessage.isFromMe !== 'boolean') {
+                processedMessage.isFromMe = false;
+            }
+            
             const enhancedMessage = {
-                ...message,
-                isButton: message.type === 'buttons_response',
-                isList: message.type === 'list_response',
-                isPoll: message.type === 'poll_update',
-                isContact: message.type === 'vcard',
-                isLocation: message.type === 'location',
-                hasQuotedMsg: !!message.quotedMsg,
-                hasMentions: message.mentionedJidList && message.mentionedJidList.length > 0
+                ...processedMessage,
+                type: processedMessage.type || 'text',
+                body: processedMessage.body || processedMessage.conversation || '',
+                isButton: processedMessage.type === 'buttons_response',
+                isList: processedMessage.type === 'list_response',
+                isPoll: processedMessage.type === 'poll_update',
+                isContact: processedMessage.type === 'vcard',
+                isLocation: processedMessage.type === 'location',
+                isMedia: this._hasMedia(processedMessage),
+                hasQuotedMsg: !!processedMessage.quotedMsg,
+                hasMentions: processedMessage.mentionedJidList && processedMessage.mentionedJidList.length > 0,
+                mentionedJidList: processedMessage.mentionedJidList || []
             };
 
-            this.client.emit(EventTypes.MESSAGE, enhancedMessage);
+            // Emit main message event
+            try {
+                this.client.emit(EventTypes.MESSAGE, enhancedMessage);
+            } catch (emitError) {
+                this.logger.error('Error emitting message event:', emitError);
+            }
             
+            // Emit specific events based on message type
             if (enhancedMessage.isButton) {
-                this.client.emit(EventTypes.BUTTON_RESPONSE, enhancedMessage);
+                try {
+                    this.client.emit(EventTypes.BUTTON_RESPONSE, enhancedMessage);
+                } catch (emitError) {
+                    this.logger.error('Error emitting button response event:', emitError);
+                }
             }
             
             if (enhancedMessage.isList) {
-                this.client.emit(EventTypes.LIST_RESPONSE, enhancedMessage);
+                try {
+                    this.client.emit(EventTypes.LIST_RESPONSE, enhancedMessage);
+                } catch (emitError) {
+                    this.logger.error('Error emitting list response event:', emitError);
+                }
             }
             
             if (enhancedMessage.isPoll) {
-                this.client.emit(EventTypes.POLL_UPDATE, enhancedMessage);
+                try {
+                    this.client.emit(EventTypes.POLL_UPDATE, enhancedMessage);
+                } catch (emitError) {
+                    this.logger.error('Error emitting poll update event:', emitError);
+                }
+            }
+            
+            if (enhancedMessage.isMedia) {
+                try {
+                    this.client.emit('media_message', enhancedMessage);
+                } catch (emitError) {
+                    this.logger.error('Error emitting media message event:', emitError);
+                }
             }
             
             this.logger.debug(`Message received from ${message.from}: ${message.body || message.type}`);
+            
         } catch (error) {
             this.logger.error('Error handling incoming message:', error);
+            
+            // Try to emit error event with message context
+            try {
+                this.client.emit('message_error', {
+                    error: error.message,
+                    originalMessage: message || {},
+                    timestamp: Date.now()
+                });
+            } catch (emitError) {
+                this.logger.error('Error emitting message error event:', emitError);
+            }
         }
+    }
+
+    /**
+     * Check if message has media
+     */
+    _hasMedia(message) {
+        if (!message) return false;
+        
+        const mediaTypes = ['image', 'video', 'audio', 'document', 'sticker'];
+        
+        // Check for media message types
+        if (mediaTypes.includes(message.type)) {
+            return true;
+        }
+        
+        // Check for media message objects
+        return mediaTypes.some(type => {
+            const mediaKey = `${type}Message`;
+            return message[mediaKey] && typeof message[mediaKey] === 'object';
+        });
+    }
+
+    /**
+     * Validate chat ID format
+     */
+    _validateChatId(chatId) {
+        if (!chatId || typeof chatId !== 'string') {
+            throw new MessageError('Chat ID is required and must be a string');
+        }
+        
+        // Basic format validation
+        if (!chatId.includes('@')) {
+            throw new MessageError('Invalid chat ID format - missing @ symbol');
+        }
+        
+        return true;
+    }
+
+    /**
+     * Validate message content
+     */
+    _validateMessage(message) {
+        if (message === null || message === undefined) {
+            throw new MessageError('Message content cannot be null or undefined');
+        }
+        
+        if (typeof message !== 'string') {
+            throw new MessageError('Message must be a string');
+        }
+        
+        if (message.length > 65536) {
+            throw new MessageError('Message exceeds maximum length of 65536 characters');
+        }
+        
+        return true;
     }
 
     /**
